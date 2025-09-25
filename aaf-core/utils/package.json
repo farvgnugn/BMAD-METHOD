@@ -1,0 +1,32 @@
+{
+  "name": "bmad-coordination-utils",
+  "version": "1.0.0",
+  "description": "BMAD Socket.IO coordination utilities for multi-developer workflows",
+  "main": "socket-coordination.js",
+  "scripts": {
+    "install-deps": "npm install",
+    "test-server": "node test-coordination-server.js",
+    "test-connection": "node socket-coordination.js connect",
+    "server-status": "node socket-coordination.js server-status",
+    "start-server": "node socket-coordination.js start-server",
+    "claim": "node socket-coordination.js claim",
+    "release": "node socket-coordination.js release",
+    "status": "node socket-coordination.js status",
+    "list": "node socket-coordination.js list",
+    "epic-progress": "node socket-coordination.js epic-progress"
+  },
+  "dependencies": {
+    "socket.io": "^4.7.2",
+    "socket.io-client": "^4.7.2",
+    "js-yaml": "^4.1.0"
+  },
+  "keywords": [
+    "bmad",
+    "coordination",
+    "socket.io",
+    "development",
+    "workflow"
+  ],
+  "author": "BMAD Method",
+  "license": "MIT"
+}

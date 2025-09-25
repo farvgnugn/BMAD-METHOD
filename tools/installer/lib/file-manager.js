@@ -288,6 +288,14 @@ class FileManager {
         coreConfig.architecture.architectureSharded = config.architectureSharded;
       }
 
+      // Modify coordination settings if provided
+      if (config.coordinationConfig) {
+        if (!coreConfig.coordination) {
+          coreConfig.coordination = {};
+        }
+        Object.assign(coreConfig.coordination, config.coordinationConfig);
+      }
+
       // Write back the modified config
       await fs.writeFile(coreConfigPath, yaml.dump(coreConfig, { indent: 2 }));
 

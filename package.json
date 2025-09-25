@@ -1,27 +1,28 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "name": "bmad-method",
-  "version": "4.43.0",
-  "description": "Breakthrough Method of Agile AI-driven Development",
+  "name": "aaf-method",
+  "version": "1.0.0",
+  "description": "Universal AI Agent Framework for Multi-Agent Coordination and Development",
   "keywords": [
-    "agile",
     "ai",
-    "orchestrator",
-    "development",
-    "methodology",
     "agents",
-    "bmad"
+    "coordination",
+    "development",
+    "multi-agent",
+    "socket-io",
+    "aaf",
+    "aaf-method"
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bmadcode/BMAD-METHOD.git"
+    "url": "git+https://github.com/YOUR-USERNAME/aaf-method.git"
   },
   "license": "MIT",
-  "author": "Brian (BMad) Madison",
+  "author": "Your Name",
   "main": "tools/cli.js",
   "bin": {
-    "bmad": "tools/bmad-npx-wrapper.js",
-    "bmad-method": "tools/bmad-npx-wrapper.js"
+    "aaf": "tools/aaf-npx-wrapper.js",
+    "aaf-method": "tools/aaf-npx-wrapper.js"
   },
   "scripts": {
     "build": "node tools/cli.js build",

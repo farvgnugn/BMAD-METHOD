@@ -3,11 +3,13 @@
 const { program } = require('commander');
 const path = require('node:path');
 const fs = require('node:fs').promises;
+const fsExtra = require('fs-extra');
 const yaml = require('js-yaml');
 const chalk = require('chalk').default || require('chalk');
 const inquirer = require('inquirer').default || require('inquirer');
 const semver = require('semver');
 const https = require('node:https');
+const http = require('node:http');
 
 // Handle both execution contexts (from root via npx or from installer directory)
 let version;
@@ -35,6 +37,59 @@ try {
     });
     process.exit(1);
   }
+}
+
+// Test server connectivity helper
+async function testServerConnectivity(serverUrl) {
+  return new Promise((resolve) => {
+    try {
+      const url = new URL(serverUrl);
+      const httpModule = url.protocol === 'https:' ? https : http;
+      const port = url.port || (url.protocol === 'https:' ? 443 : 80);
+
+      const req = httpModule.get({
+        hostname: url.hostname,
+        port: port,
+        path: '/',
+        timeout: 5000,
+      }, (res) => {
+        resolve(true);
+      });
+
+      req.on('error', () => {
+        resolve(false);
+      });
+
+      req.on('timeout', () => {
+        req.destroy();
+        resolve(false);
+      });
+    } catch (error) {
+      resolve(false);
+    }
+  });
+}
+
+// Network discovery helper
+async function discoverCoordinationServers() {
+  const commonPorts = [54321, 3000, 8080, 4000];
+  const localIPs = ['localhost', '127.0.0.1'];
+
+  console.log(chalk.cyan('🔍 Scanning for coordination servers...'));
+
+  const discoveries = [];
+
+  for (const ip of localIPs) {
+    for (const port of commonPorts) {
+      const url = `http://${ip}:${port}`;
+      const isReachable = await testServerConnectivity(url);
+      if (isReachable) {
+        discoveries.push(url);
+      }
+    }
+  }
+
+  return discoveries;
 }
 
 program
@@ -174,6 +229,19 @@ program
       await installer.showStatus();
     } catch (error) {
       console.error(chalk.red('Error:'), error.message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('setup-coordination')
+  .description('Configure multi-agent coordination for an existing BMAD project')
+  .option('-p, --project <path>', 'Path to BMAD project directory', process.cwd())
+  .action(async (options) => {
+    try {
+      await setupCoordinationOnly(options.project);
+    } catch (error) {
+      console.error(chalk.red('Coordination setup failed:'), error.message);
       process.exit(1);
     }
   });
@@ -548,6 +616,171 @@ async function promptInstallation() {
     answers.augmentCodeConfig = { selectedLocations };
   }
 
+  // Ask about coordination setup
+  console.log(chalk.cyan('\n🔗 Multi-Agent Coordination Setup'));
+  console.log(chalk.dim('Configure real-time coordination for distributed team development.\n'));
+
+  const { enableCoordination } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'enableCoordination',
+      message: 'Enable multi-agent coordination system? (allows agents to work together across machines)',
+      default: false,
+    },
+  ]);
+
+  if (enableCoordination) {
+    const { coordinationMode } = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'coordinationMode',
+        message: 'Select coordination setup:',
+        choices: [
+          {
+            name: 'Local development (single machine, auto-start server)',
+            value: 'local',
+          },
+          {
+            name: 'Team shared server (connect to existing server)',
+            value: 'shared',
+          },
+          {
+            name: 'Host coordination server (this machine will host for the team)',
+            value: 'host',
+          },
+        ],
+        default: 'local',
+      },
+    ]);
+
+    let coordinationConfig = {
+      enabled: true,
+      autoStartServer: coordinationMode === 'local' || coordinationMode === 'host',
+      serverStartTimeout: 10,
+      storyClaimTimeout: 3600,
+      progressUpdateInterval: 300,
+      conflictResolution: 'first-claim-wins',
+    };
+
+    if (coordinationMode === 'shared') {
+      // Try to discover servers first
+      const discoveries = await discoverCoordinationServers();
+      let serverUrl;
+
+      if (discoveries.length > 0) {
+        const { useDiscovered } = await inquirer.prompt([
+          {
+            type: 'list',
+            name: 'useDiscovered',
+            message: 'Found coordination servers. Choose one or enter a custom URL:',
+            choices: [
+              ...discoveries.map(url => ({ name: `${url} (discovered)`, value: url })),
+              { name: 'Enter custom URL', value: 'custom' }
+            ]
+          }
+        ]);
+
+        if (useDiscovered !== 'custom') {
+          serverUrl = useDiscovered;
+        }
+      }
+
+      if (!serverUrl) {
+        const response = await inquirer.prompt([
+          {
+            type: 'input',
+            name: 'serverUrl',
+            message: 'Enter the coordination server URL:',
+            default: 'http://localhost:54321',
+            validate: async (input) => {
+              try {
+                new URL(input);
+
+                // Test connectivity
+                const testSpinner = ora('Testing server connectivity...').start();
+                try {
+                  const isReachable = await testServerConnectivity(input);
+                  testSpinner.stop();
+
+                  if (isReachable) {
+                    console.log(chalk.green('✓ Server is reachable'));
+                    return true;
+                  } else {
+                    console.log(chalk.yellow('⚠ Server is not responding (you can still continue)'));
+                    return 'Server not responding. Continue anyway? (y/N)';
+                  }
+                } catch (error) {
+                  testSpinner.stop();
+                  console.log(chalk.yellow(`⚠ Could not test connectivity: ${error.message}`));
+                  return true; // Allow to continue even if test fails
+                }
+              } catch {
+                return 'Please enter a valid URL (e.g., http://server-ip:54321)';
+              }
+            },
+          },
+        ]);
+        serverUrl = response.serverUrl;
+      }
+
+      coordinationConfig.serverUrl = serverUrl;
+      coordinationConfig.socketNamespace = '/dev-coordination';
+    } else if (coordinationMode === 'host') {
+      const { hostPort, hostInterface } = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'hostPort',
+          message: 'Port for coordination server:',
+          default: '54321',
+          validate: (input) => {
+            const port = parseInt(input);
+            if (isNaN(port) || port < 1000 || port > 65535) {
+              return 'Please enter a valid port number (1000-65535)';
+            }
+            return true;
+          },
+        },
+        {
+          type: 'list',
+          name: 'hostInterface',
+          message: 'Server accessibility:',
+          choices: [
+            {
+              name: 'Local network only (192.168.x.x, 10.x.x.x)',
+              value: 'local',
+            },
+            {
+              name: 'All interfaces (accessible from any network)',
+              value: 'all',
+            },
+          ],
+          default: 'local',
+        },
+      ]);
+
+      coordinationConfig.serverUrl = hostInterface === 'all'
+        ? `http://0.0.0.0:${hostPort}`
+        : `http://localhost:${hostPort}`;
+      coordinationConfig.socketNamespace = '/dev-coordination';
+
+      console.log(chalk.yellow('\n📋 Team Connection Info:'));
+      if (hostInterface === 'local') {
+        console.log(chalk.yellow(`   Team members should use: http://<your-local-ip>:${hostPort}`));
+        console.log(chalk.dim(`   (Replace <your-local-ip> with your actual IP address)`));
+      } else {
+        console.log(chalk.yellow(`   Team members should use: http://<your-ip>:${hostPort}`));
+      }
+    } else {
+      // Local mode
+      coordinationConfig.serverUrl = 'http://localhost:54321';
+      coordinationConfig.socketNamespace = '/dev-coordination';
+    }
+
+    answers.coordinationConfig = coordinationConfig;
+  } else {
+    answers.coordinationConfig = { enabled: false };
+  }
+
   // Ask for web bundles installation
   const { includeWebBundles } = await inquirer.prompt([
     {
@@ -650,6 +883,216 @@ async function promptInstallation() {
   answers.includeWebBundles = includeWebBundles;
 
   return answers;
+}
+
+async function setupCoordinationOnly(projectPath) {
+  console.log(chalk.bold.cyan('\n🔗 BMAD Multi-Agent Coordination Setup'));
+  console.log(chalk.dim('Configure real-time coordination for distributed development.\n'));
+
+  const installDir = path.resolve(projectPath);
+  const coreConfigPath = path.join(installDir, '.bmad-core', 'core-config.yaml');
+
+  // Check if BMAD is installed
+  if (!(await fsExtra.pathExists(coreConfigPath))) {
+    console.log(chalk.red('❌ BMAD installation not found in this directory.'));
+    console.log(chalk.yellow('   Run "bmad install" first to set up BMAD in this project.'));
+    process.exit(1);
+  }
+
+  // Get project name from directory
+  const projectName = path.basename(installDir);
+  console.log(chalk.blue(`📁 Project: ${projectName}`));
+  console.log(chalk.blue(`📂 Location: ${installDir}\n`));
+
+  // Ask about coordination setup
+  const { enableCoordination } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'enableCoordination',
+      message: 'Enable multi-agent coordination system?',
+      default: true,
+    },
+  ]);
+
+  if (!enableCoordination) {
+    console.log(chalk.yellow('Coordination disabled.'));
+
+    // Update config to disable coordination
+    const fileManager = require('../lib/file-manager');
+    await fileManager.modifyCoreConfig(installDir, {
+      coordinationConfig: { enabled: false }
+    });
+
+    console.log(chalk.green('✓ Configuration updated'));
+    return;
+  }
+
+  const { coordinationMode } = await inquirer.prompt([
+    {
+      type: 'list',
+      name: 'coordinationMode',
+      message: 'Select coordination setup:',
+      choices: [
+        {
+          name: 'Local development (single machine, auto-start server)',
+          value: 'local',
+        },
+        {
+          name: 'Team shared server (connect to existing server)',
+          value: 'shared',
+        },
+        {
+          name: 'Host coordination server (this machine will host for the team)',
+          value: 'host',
+        },
+      ],
+      default: 'local',
+    },
+  ]);
+
+  let coordinationConfig = {
+    enabled: true,
+    autoStartServer: coordinationMode === 'local' || coordinationMode === 'host',
+    serverStartTimeout: 10,
+    storyClaimTimeout: 3600,
+    progressUpdateInterval: 300,
+    conflictResolution: 'first-claim-wins',
+  };
+
+  if (coordinationMode === 'shared') {
+    // Try to discover servers first
+    const discoveries = await discoverCoordinationServers();
+    let serverUrl;
+
+    if (discoveries.length > 0) {
+      const { useDiscovered } = await inquirer.prompt([
+        {
+          type: 'list',
+          name: 'useDiscovered',
+          message: 'Found coordination servers. Choose one or enter a custom URL:',
+          choices: [
+            ...discoveries.map(url => ({ name: `${url} (discovered)`, value: url })),
+            { name: 'Enter custom URL', value: 'custom' }
+          ]
+        }
+      ]);
+
+      if (useDiscovered !== 'custom') {
+        serverUrl = useDiscovered;
+      }
+    }
+
+    if (!serverUrl) {
+      const response = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'serverUrl',
+          message: 'Enter the coordination server URL:',
+          default: 'http://localhost:54321',
+          validate: async (input) => {
+            try {
+              new URL(input);
+              const testSpinner = ora('Testing server connectivity...').start();
+              try {
+                const isReachable = await testServerConnectivity(input);
+                testSpinner.stop();
+
+                if (isReachable) {
+                  console.log(chalk.green('✓ Server is reachable'));
+                  return true;
+                } else {
+                  console.log(chalk.yellow('⚠ Server is not responding (you can still continue)'));
+                  return true;
+                }
+              } catch (error) {
+                testSpinner.stop();
+                console.log(chalk.yellow(`⚠ Could not test connectivity: ${error.message}`));
+                return true;
+              }
+            } catch {
+              return 'Please enter a valid URL (e.g., http://server-ip:54321)';
+            }
+          },
+        },
+      ]);
+      serverUrl = response.serverUrl;
+    }
+
+    coordinationConfig.serverUrl = serverUrl;
+    coordinationConfig.socketNamespace = '/dev-coordination';
+  } else if (coordinationMode === 'host') {
+    const { hostPort, hostInterface } = await inquirer.prompt([
+      {
+        type: 'input',
+        name: 'hostPort',
+        message: 'Port for coordination server:',
+        default: '54321',
+        validate: (input) => {
+          const port = parseInt(input);
+          if (isNaN(port) || port < 1000 || port > 65535) {
+            return 'Please enter a valid port number (1000-65535)';
+          }
+          return true;
+        },
+      },
+      {
+        type: 'list',
+        name: 'hostInterface',
+        message: 'Server accessibility:',
+        choices: [
+          {
+            name: 'Local network only (192.168.x.x, 10.x.x.x)',
+            value: 'local',
+          },
+          {
+            name: 'All interfaces (accessible from any network)',
+            value: 'all',
+          },
+        ],
+        default: 'local',
+      },
+    ]);
+
+    coordinationConfig.serverUrl = hostInterface === 'all'
+      ? `http://0.0.0.0:${hostPort}`
+      : `http://localhost:${hostPort}`;
+    coordinationConfig.socketNamespace = '/dev-coordination';
+
+    console.log(chalk.yellow('\n📋 Team Connection Info:'));
+    if (hostInterface === 'local') {
+      console.log(chalk.yellow(`   Team members should use: http://<your-local-ip>:${hostPort}`));
+      console.log(chalk.dim(`   (Replace <your-local-ip> with your actual IP address)`));
+    } else {
+      console.log(chalk.yellow(`   Team members should use: http://<your-ip>:${hostPort}`));
+    }
+  } else {
+    // Local mode
+    coordinationConfig.serverUrl = 'http://localhost:54321';
+    coordinationConfig.socketNamespace = '/dev-coordination';
+  }
+
+  // Apply configuration
+  const fileManager = require('../lib/file-manager');
+  await fileManager.modifyCoreConfig(installDir, {
+    coordinationConfig: coordinationConfig
+  });
+
+  console.log(chalk.green('\n✅ Coordination setup complete!'));
+
+  if (coordinationMode === 'local') {
+    console.log(chalk.cyan('\n🚀 Next steps:'));
+    console.log(chalk.white('   • Use any BMAD agent with coordination enabled'));
+    console.log(chalk.white('   • Server will start automatically when first agent connects'));
+  } else if (coordinationMode === 'host') {
+    console.log(chalk.cyan('\n🚀 Next steps:'));
+    console.log(chalk.white('   • Share the connection info above with your team'));
+    console.log(chalk.white('   • Start the server: cd bmad-core/utils && npm run test-server'));
+    console.log(chalk.white('   • Or let agents auto-start the server'));
+  } else {
+    console.log(chalk.cyan('\n🚀 Next steps:'));
+    console.log(chalk.white('   • Use any BMAD agent - they will connect to the shared server'));
+    console.log(chalk.white('   • Ensure the coordination server is running at the configured URL'));
+  }
 }
 
 program.parse(process.argv);

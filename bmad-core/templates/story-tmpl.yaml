@@ -142,6 +142,21 @@ sections:
           - **Branch Status**: [Created/Pushed/Merged]
           - **Commit Summary**: [Brief description of changes]
 
+      - id: coordination-record
+        title: Developer Coordination Record
+        instruction: Track multi-developer coordination activities (populated when coordination is enabled)
+        owner: dev-agent
+        editors: [dev-agent]
+        template: |
+          - **Claimed By**: [Developer ID]
+          - **Claim Time**: [Timestamp]
+          - **Coordination Server**: [Server URL/Status]
+          - **Story Status**: [Available/Claimed/InProgress/Review/Done]
+          - **Progress Updates**:
+            - [Timestamp]: [Progress %] - [Status/Notes]
+          - **Conflicts Resolved**: [Any coordination conflicts and resolutions]
+          - **Release Time**: [When story was released for review]
+
       - id: process-compliance
         title: Process Compliance Tracking
         instruction: Automatically managed section tracking process adherence and validation results
@@ -153,6 +168,7 @@ sections:
             type: checklist
             template: |
               - [ ] Story moved from Draft to Approved before implementation
+              - [ ] Coordination check completed (if enabled: story claimed successfully)
               - [ ] Git workflow setup completed (branch created and checked out)
               - [ ] All tasks have corresponding test implementations
               - [ ] Story DOD checklist executed with results recorded
@@ -160,6 +176,7 @@ sections:
               - [ ] All acceptance criteria validated and documented
               - [ ] Git workflow completion executed (commits, push, PR created)
               - [ ] Pull request link recorded in Git Workflow Record section
+              - [ ] Coordination completion executed (if enabled: status updated, story released)
               - [ ] Process compliance score: ___% (target: ≥80%)
             instruction: Track completion of mandatory process steps
             owner: dev-agent

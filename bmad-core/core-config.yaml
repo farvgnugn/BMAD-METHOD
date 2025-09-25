@@ -21,3 +21,13 @@ devLoadAlwaysFiles:
 devDebugLog: .ai/debug-log.md
 devStoryLocation: docs/stories
 slashPrefix: BMad
+coordination:
+  enabled: false
+  serverUrl: "http://localhost:54321"
+  socketNamespace: "/dev-coordination"
+  developerAuth:
+    method: "simple" # simple, token, oauth
+    requireAuth: false
+  storyClaimTimeout: 3600 # seconds (1 hour)
+  progressUpdateInterval: 300 # seconds (5 minutes)
+  conflictResolution: "first-claim-wins" # first-claim-wins, priority-based, manual

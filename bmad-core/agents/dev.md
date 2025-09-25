@@ -63,6 +63,11 @@ commands:
           - MANDATORY: Create feature branch using story naming convention: "story/epic-story-short-description" (e.g., "story/15.3-user-authentication")
           - MANDATORY: Checkout to the new feature branch before beginning any development work
           - MANDATORY: Confirm branch creation successful and working directory is clean
+      - coordination-check:
+          - OPTIONAL: If coordination is enabled in core-config.yaml, check if story is already claimed
+          - OPTIONAL: If story unclaimed and coordination enabled, claim story before proceeding
+          - OPTIONAL: If coordination enabled, connect to coordination server and identify as developer
+          - NOTE: Coordination features are optional and only used when enabled in configuration
       - pre-execution-validation:
           - MANDATORY: Verify story status is NOT 'Draft' - HALT if still in Draft
           - MANDATORY: Confirm Dev Notes section is populated with sufficient context
@@ -80,7 +85,12 @@ commands:
           - CRITICAL: DO NOT modify Status, Story, Acceptance Criteria, Dev Notes, Testing sections, or any other sections not listed above
       - blocking: 'HALT for: Unapproved deps needed, confirm with user | Ambiguous after story check | 3 failures attempting to implement or fix something repeatedly | Missing config | Failing regression | Pre-execution validation failures | Task completion gate failures'
       - ready-for-review: 'Code matches requirements + All validations pass + Follows standards + File List complete + All acceptance criteria validated'
-      - completion: "MANDATORY SEQUENCE: All Tasks and Subtasks marked [x] and have tests→Validations and full regression passes (DON'T BE LAZY, EXECUTE ALL TESTS and CONFIRM)→Ensure File List is Complete→run the task execute-checklist for the checklist story-dod-checklist→ONLY if DOD checklist has ZERO failures, execute git-workflow-completion→set story status: 'Ready for Review'→HALT"
+      - completion: "MANDATORY SEQUENCE: All Tasks and Subtasks marked [x] and have tests→Validations and full regression passes (DON'T BE LAZY, EXECUTE ALL TESTS and CONFIRM)→Ensure File List is Complete→run the task execute-checklist for the checklist story-dod-checklist→ONLY if DOD checklist has ZERO failures, execute git-workflow-completion→execute coordination-completion→set story status: 'Ready for Review'→HALT"
+      - coordination-completion:
+          - OPTIONAL: If coordination enabled, update story status to 'Review' in coordination server
+          - OPTIONAL: If coordination enabled, release story claim to make it available for QA
+          - OPTIONAL: If coordination enabled, broadcast completion to coordination channel
+          - OPTIONAL: If coordination enabled and more stories available in epic, offer to claim next story
       - git-workflow-completion:
           - MANDATORY: Add all changed files to git staging area
           - MANDATORY: Create commit with descriptive message including story number and summary
@@ -91,6 +101,12 @@ commands:
           - MANDATORY: Verify PR creation successful before marking story complete
   - setup-git-branch: Create and checkout feature branch for story development (run if not done during develop-story)
   - create-pr: Execute git workflow completion - commit changes, push branch, and create pull request
+  - join-coordination: Connect to Socket.IO coordination server for multi-developer projects
+  - find-available-story: List available stories in current epic for claiming
+  - claim-story: Reserve a story for development (prevents other developers from working on it)
+  - release-story: Make current story available to other developers
+  - update-progress: Broadcast development progress to coordination channel
+  - epic-status: View overall epic progress and developer assignments
   - explain: teach me what and why you did whatever you just did in detail so I can learn. Explain to me as if you were training a junior engineer.
   - review-qa: run task `apply-qa-fixes.md'
   - run-tests: Execute linting and tests

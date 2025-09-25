@@ -10,6 +10,8 @@ const { io } = require('socket.io-client');
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
+const { spawn } = require('child_process');
+const http = require('http');
 
 class BMadCoordination {
     constructor() {
@@ -34,12 +36,29 @@ class BMadCoordination {
         }
     }
 
-    connect(developerId) {
-        return new Promise((resolve, reject) => {
-            this.developerId = developerId;
-            const serverUrl = this.config.coordination.serverUrl;
-            const namespace = this.config.coordination.socketNamespace || '/dev-coordination';
+    async connect(developerId, autoStartServer = null) {
+        this.developerId = developerId;
+        const serverUrl = this.config.coordination.serverUrl;
+        const namespace = this.config.coordination.socketNamespace || '/dev-coordination';
 
+        // Use config setting if not explicitly specified
+        const shouldAutoStart = autoStartServer !== null
+            ? autoStartServer
+            : this.config.coordination.autoStartServer !== false;
+
+        // Check if server is running, start if needed
+        if (shouldAutoStart) {
+            const isServerRunning = await this.checkServerRunning();
+            if (!isServerRunning) {
+                console.log('Coordination server not detected, starting server...');
+                await this.startServer();
+                // Wait for server to be ready
+                const timeout = (this.config.coordination.serverStartTimeout || 10) * 1000;
+                await this.waitForServer(timeout);
+            }
+        }
+
+        return new Promise((resolve, reject) => {
             this.socket = io(serverUrl + namespace, {
                 auth: {
                     developerId: developerId,
@@ -185,6 +204,73 @@ class BMadCoordination {
         });
     }
 
+    async checkServerRunning() {
+        const url = new URL(this.config.coordination.serverUrl);
+        const port = url.port || (url.protocol === 'https:' ? 443 : 80);
+        const hostname = url.hostname;
+
+        return new Promise((resolve) => {
+            const req = http.get(`http://${hostname}:${port}`, (res) => {
+                resolve(true);
+            });
+
+            req.on('error', () => {
+                resolve(false);
+            });
+
+            req.setTimeout(2000, () => {
+                req.destroy();
+                resolve(false);
+            });
+        });
+    }
+
+    async startServer() {
+        return new Promise((resolve, reject) => {
+            const serverScriptPath = path.join(__dirname, 'test-coordination-server.js');
+
+            if (!fs.existsSync(serverScriptPath)) {
+                reject(new Error('Coordination server script not found'));
+                return;
+            }
+
+            const url = new URL(this.config.coordination.serverUrl);
+            const port = url.port || 54321;
+
+            console.log(`Starting coordination server on port ${port}...`);
+
+            // Start server in background
+            const serverProcess = spawn('node', [serverScriptPath, port], {
+                detached: true,
+                stdio: 'ignore'
+            });
+
+            // Unref so main process can exit
+            serverProcess.unref();
+
+            // Give server time to start
+            setTimeout(() => {
+                console.log('Coordination server started in background');
+                resolve();
+            }, 2000);
+        });
+    }
+
+    async waitForServer(maxWait = 10000) {
+        const startTime = Date.now();
+
+        while (Date.now() - startTime < maxWait) {
+            const isRunning = await this.checkServerRunning();
+            if (isRunning) {
+                console.log('Coordination server is ready');
+                return true;
+            }
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+
+        throw new Error('Coordination server failed to start within timeout');
+    }
+
     disconnect() {
         if (this.socket) {
             this.socket.disconnect();
@@ -268,6 +354,31 @@ async function main() {
                 coordination.disconnect();
                 break;
 
+            case 'server-status':
+                const isRunning = await coordination.checkServerRunning();
+                console.log(`Coordination server status: ${isRunning ? 'RUNNING' : 'STOPPED'}`);
+                if (isRunning) {
+                    console.log(`Server URL: ${coordination.config.coordination.serverUrl}`);
+                } else {
+                    console.log('Use "start-server" command to start the server manually');
+                }
+                break;
+
+            case 'start-server':
+                try {
+                    const isRunning = await coordination.checkServerRunning();
+                    if (isRunning) {
+                        console.log('Coordination server is already running');
+                    } else {
+                        await coordination.startServer();
+                        await coordination.waitForServer();
+                        console.log('Coordination server started successfully');
+                    }
+                } catch (error) {
+                    console.error('Failed to start server:', error.message);
+                }
+                break;
+
             default:
                 console.log('BMAD Socket.IO Coordination Client');
                 console.log('Usage:');
@@ -277,6 +388,10 @@ async function main() {
                 console.log('  status <storyId> <status> [progress] [notes] - Update story status');
                 console.log('  list [epicId]             - List available stories');
                 console.log('  epic-progress <epicId>    - Show epic progress');
+                console.log('  server-status             - Check if coordination server is running');
+                console.log('  start-server              - Start coordination server manually');
+                console.log('');
+                console.log('Note: Server auto-starts by default when coordination is enabled');
                 break;
         }
     } catch (error) {

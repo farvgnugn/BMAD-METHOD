@@ -25,6 +25,8 @@ coordination:
   enabled: false
   serverUrl: "http://localhost:54321"
   socketNamespace: "/dev-coordination"
+  autoStartServer: true # Automatically start server if not running
+  serverStartTimeout: 10 # seconds to wait for server startup
   developerAuth:
     method: "simple" # simple, token, oauth
     requireAuth: false

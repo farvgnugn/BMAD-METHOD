@@ -65,8 +65,9 @@ commands:
           - MANDATORY: Confirm branch creation successful and working directory is clean
       - coordination-check:
           - OPTIONAL: If coordination is enabled in core-config.yaml, check if story is already claimed
+          - OPTIONAL: If coordination enabled, connect to coordination server (auto-starts server if needed)
           - OPTIONAL: If story unclaimed and coordination enabled, claim story before proceeding
-          - OPTIONAL: If coordination enabled, connect to coordination server and identify as developer
+          - OPTIONAL: If coordination enabled, identify as developer and join coordination channel
           - NOTE: Coordination features are optional and only used when enabled in configuration
       - pre-execution-validation:
           - MANDATORY: Verify story status is NOT 'Draft' - HALT if still in Draft

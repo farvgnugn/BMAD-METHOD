@@ -131,6 +131,46 @@ sections:
         owner: dev-agent
         editors: [dev-agent]
 
+      - id: git-workflow-record
+        title: Git Workflow Record
+        instruction: Track Git workflow operations and pull request information
+        owner: dev-agent
+        editors: [dev-agent]
+        template: |
+          - **Feature Branch**: story/[epic].[story]-[description]
+          - **Pull Request**: [PR Link]
+          - **Branch Status**: [Created/Pushed/Merged]
+          - **Commit Summary**: [Brief description of changes]
+
+      - id: process-compliance
+        title: Process Compliance Tracking
+        instruction: Automatically managed section tracking process adherence and validation results
+        owner: dev-agent
+        editors: [dev-agent]
+        sections:
+          - id: process-checkpoints
+            title: Process Checkpoints
+            type: checklist
+            template: |
+              - [ ] Story moved from Draft to Approved before implementation
+              - [ ] Git workflow setup completed (branch created and checked out)
+              - [ ] All tasks have corresponding test implementations
+              - [ ] Story DOD checklist executed with results recorded
+              - [ ] File list populated with all modified/created/deleted files
+              - [ ] All acceptance criteria validated and documented
+              - [ ] Git workflow completion executed (commits, push, PR created)
+              - [ ] Pull request link recorded in Git Workflow Record section
+              - [ ] Process compliance score: ___% (target: ≥80%)
+            instruction: Track completion of mandatory process steps
+            owner: dev-agent
+            editors: [dev-agent]
+
+          - id: validation-failures
+            title: Validation Failures Log
+            instruction: Record any process validation failures and resolution actions
+            owner: dev-agent
+            editors: [dev-agent]
+
   - id: qa-results
     title: QA Results
     instruction: Results from QA Agent QA review of the completed story implementation

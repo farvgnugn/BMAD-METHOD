@@ -10,7 +10,13 @@ If the user asks or does not specify a specific checklist, list the checklists a
 
 ## Instructions
 
-1. **Initial Assessment**
+1. **Pre-Execution Validation**
+   - MANDATORY: Verify the requesting agent has completed all assigned story sections
+   - MANDATORY: Confirm no story tasks remain unmarked as complete
+   - MANDATORY: Validate all acceptance criteria references are addressed
+   - If ANY pre-execution check fails: HALT and require completion before checklist execution
+
+2. **Initial Assessment**
    - If user or the task being run provides a checklist name:
      - Try fuzzy matching (e.g. "architecture checklist" -> "architect-checklist")
      - If multiple matches found, ask user to clarify
@@ -71,6 +77,15 @@ If the user asks or does not specify a specific checklist, list the checklists a
    - List of failed items with context
    - Specific recommendations for improvement
    - Any sections or items marked as N/A with justification
+
+7. **Post-Execution Enforcement**
+
+   After checklist completion:
+   - MANDATORY: If ANY item is marked as ❌ FAIL: The story status MUST NOT be changed to "Ready for Review"
+   - MANDATORY: If ⚠️ PARTIAL items exist: Document specific follow-up actions required
+   - MANDATORY: Generate process compliance score: (PASS items / Total applicable items) * 100
+   - MANDATORY: If compliance score < 80%: HALT and require fixes before story progression
+   - MANDATORY: Record all failed items in story's Dev Agent Record section for tracking
 
 ## Checklist Execution Methodology
 

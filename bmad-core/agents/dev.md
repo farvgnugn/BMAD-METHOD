@@ -58,14 +58,39 @@ core_principles:
 commands:
   - help: Show numbered list of the following commands to allow selection
   - develop-story:
+      - git-workflow-setup:
+          - MANDATORY: Execute 'git pull' to ensure local main branch is current
+          - MANDATORY: Create feature branch using story naming convention: "story/epic-story-short-description" (e.g., "story/15.3-user-authentication")
+          - MANDATORY: Checkout to the new feature branch before beginning any development work
+          - MANDATORY: Confirm branch creation successful and working directory is clean
+      - pre-execution-validation:
+          - MANDATORY: Verify story status is NOT 'Draft' - HALT if still in Draft
+          - MANDATORY: Confirm Dev Notes section is populated with sufficient context
+          - MANDATORY: Validate at least one Acceptance Criteria exists
+          - MANDATORY: Confirm all required devLoadAlwaysFiles have been read
       - order-of-execution: 'Read (first or next) task→Implement Task and its subtasks→Write tests→Execute validations→Only if ALL pass, then update the task checkbox with [x]→Update story section File List to ensure it lists and new or modified or deleted source file→repeat order-of-execution until complete'
+      - task-completion-gates:
+          - MANDATORY: Before marking any task as [x], verify corresponding tests are implemented and passing
+          - MANDATORY: Before updating checkbox, confirm implementation satisfies acceptance criteria
+          - MANDATORY: Update File List with ALL files created, modified, or deleted for this task
+          - MANDATORY: If task fails validation 3 times, HALT and request user guidance
       - story-file-updates-ONLY:
           - CRITICAL: ONLY UPDATE THE STORY FILE WITH UPDATES TO SECTIONS INDICATED BELOW. DO NOT MODIFY ANY OTHER SECTIONS.
           - CRITICAL: You are ONLY authorized to edit these specific sections of story files - Tasks / Subtasks Checkboxes, Dev Agent Record section and all its subsections, Agent Model Used, Debug Log References, Completion Notes List, File List, Change Log, Status
           - CRITICAL: DO NOT modify Status, Story, Acceptance Criteria, Dev Notes, Testing sections, or any other sections not listed above
-      - blocking: 'HALT for: Unapproved deps needed, confirm with user | Ambiguous after story check | 3 failures attempting to implement or fix something repeatedly | Missing config | Failing regression'
-      - ready-for-review: 'Code matches requirements + All validations pass + Follows standards + File List complete'
-      - completion: "All Tasks and Subtasks marked [x] and have tests→Validations and full regression passes (DON'T BE LAZY, EXECUTE ALL TESTS and CONFIRM)→Ensure File List is Complete→run the task execute-checklist for the checklist story-dod-checklist→set story status: 'Ready for Review'→HALT"
+      - blocking: 'HALT for: Unapproved deps needed, confirm with user | Ambiguous after story check | 3 failures attempting to implement or fix something repeatedly | Missing config | Failing regression | Pre-execution validation failures | Task completion gate failures'
+      - ready-for-review: 'Code matches requirements + All validations pass + Follows standards + File List complete + All acceptance criteria validated'
+      - completion: "MANDATORY SEQUENCE: All Tasks and Subtasks marked [x] and have tests→Validations and full regression passes (DON'T BE LAZY, EXECUTE ALL TESTS and CONFIRM)→Ensure File List is Complete→run the task execute-checklist for the checklist story-dod-checklist→ONLY if DOD checklist has ZERO failures, execute git-workflow-completion→set story status: 'Ready for Review'→HALT"
+      - git-workflow-completion:
+          - MANDATORY: Add all changed files to git staging area
+          - MANDATORY: Create commit with descriptive message including story number and summary
+          - MANDATORY: Push feature branch to origin (creates remote branch if first push)
+          - MANDATORY: Create pull request from feature branch to main branch
+          - MANDATORY: Include story link and summary in PR description
+          - MANDATORY: Record PR link in story Dev Agent Record section
+          - MANDATORY: Verify PR creation successful before marking story complete
+  - setup-git-branch: Create and checkout feature branch for story development (run if not done during develop-story)
+  - create-pr: Execute git workflow completion - commit changes, push branch, and create pull request
   - explain: teach me what and why you did whatever you just did in detail so I can learn. Explain to me as if you were training a junior engineer.
   - review-qa: run task `apply-qa-fixes.md'
   - run-tests: Execute linting and tests

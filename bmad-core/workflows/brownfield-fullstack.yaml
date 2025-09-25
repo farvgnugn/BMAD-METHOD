@@ -12,6 +12,20 @@ workflow:
     - modernization
     - integration-enhancement
 
+  step_validation_rules:
+    before_agent_handoff:
+      - verify_previous_agent_completed_all_assigned_sections
+      - confirm_required_artifacts_exist_and_accessible
+      - validate_agent_section_ownership_respected
+    after_each_agent_step:
+      - validate_agent_updated_only_authorized_sections
+      - confirm_deliverable_quality_meets_template_requirements
+      - verify_handoff_criteria_satisfied_before_next_step
+    mandatory_quality_gates:
+      - po_validation_must_pass_before_story_creation
+      - dev_agent_must_complete_dod_checklist_before_review
+      - story_status_changes_require_process_compliance_validation
+
   sequence:
     - step: enhancement_classification
       agent: analyst

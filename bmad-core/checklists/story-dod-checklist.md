@@ -62,7 +62,18 @@ The goal is quality delivery, not just checking boxes.]]
    - [ ] Any clarifications or decisions made during development are documented in the story file or linked appropriately.
    - [ ] The story wrap up section has been completed with notes of changes or information relevant to the next story or overall project, the agent model that was primarily used during development, and the changelog of any changes is properly updated.
 
-6. **Dependencies, Build & Configuration:**
+6. **Git Workflow & Version Control:**
+
+   [[LLM: Proper version control ensures code traceability and collaboration]]
+   - [ ] Feature branch was created using proper naming convention (story/epic.story-description).
+   - [ ] All development work was performed on the feature branch (not main/master).
+   - [ ] All changes have been committed with descriptive commit messages.
+   - [ ] Feature branch has been pushed to origin remote repository.
+   - [ ] Pull request has been created from feature branch to main branch.
+   - [ ] Pull request includes story reference and summary of changes.
+   - [ ] Git Workflow Record section in story has been populated with branch and PR information.
+
+7. **Dependencies, Build & Configuration:**
 
    [[LLM: Build issues block everyone. Ensure everything compiles and runs cleanly]]
    - [ ] Project builds successfully without errors.
@@ -72,7 +83,7 @@ The goal is quality delivery, not just checking boxes.]]
    - [ ] No known security vulnerabilities introduced by newly added and approved dependencies.
    - [ ] If new environment variables or configurations were introduced by the story, they are documented and handled securely.
 
-7. **Documentation (If Applicable):**
+8. **Documentation (If Applicable):**
 
    [[LLM: Good documentation prevents future confusion. What needs explaining?]]
    - [ ] Relevant inline code documentation (e.g., JSDoc, TSDoc, Python docstrings) for new public APIs or complex logic is complete.
@@ -94,3 +105,30 @@ After completing the checklist:
 Be honest - it's better to flag issues now than have them discovered later.]]
 
 - [ ] I, the Developer Agent, confirm that all applicable items above have been addressed.
+
+## Process Enforcement Rules
+
+[[LLM: MANDATORY COMPLIANCE VALIDATION
+
+After completing the DOD checklist, you MUST follow these enforcement rules:
+
+1. **Failure Threshold**: If ANY checklist item is marked as [ ] Not Done, the story CANNOT be marked as "Ready for Review"
+2. **Compliance Score**: Calculate (Items Done / Total Applicable Items) * 100. Minimum acceptable score is 80%
+3. **Partial Item Handling**: Items marked as [N/A] must have clear justification. Questionable N/A items count as failures
+4. **Status Change Prevention**: If compliance score < 80% or critical failures exist, HALT and prevent status change
+5. **Documentation Requirement**: All failures must be logged in the story's Process Compliance Tracking section
+
+CRITICAL: Do not allow story progression if DOD standards are not met. Quality gates exist for a reason.]]
+
+**Mandatory Actions After Checklist Completion:**
+
+- [ ] **Compliance Score Calculated**: ___% (Minimum required: 80%)
+- [ ] **All Failures Documented**: Record specific items that need attention
+- [ ] **Process Validation**: Confirm story meets BMAD method requirements
+- [ ] **Status Change Authorization**: Only proceed to "Ready for Review" if score ≥ 80% AND no critical failures
+
+**If Checklist Fails (Score < 80% or Critical Issues):**
+- HALT story progression immediately
+- Document all failures in Process Compliance Tracking section
+- Require remediation before allowing status change
+- Re-run this checklist after fixes are applied

@@ -1,0 +1,18 @@
+id: "21.1"
+title: "Workflow Orchestration System"
+description: "Implement multi-agent workflow coordination with real-time status updates"
+status: "Available"
+priority: "high"
+epic_id: "21"
+details: |
+  ## Acceptance Criteria
+  - Agents can discover and claim available work
+  - Real-time status broadcasting between agents
+  - Story claiming system prevents conflicts
+  - Git branch tracking integration
+
+  ## Technical Implementation
+  - Socket.io for real-time communication
+  - Project-scoped agent coordination
+  - Workflow state management
+  - Role-based notifications

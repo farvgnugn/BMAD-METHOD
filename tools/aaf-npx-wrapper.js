@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * BMad Method CLI - Direct execution wrapper for npx
+ * AAF Method CLI - Direct execution wrapper for npx
  * This file ensures proper execution when run via npx from GitHub
  */
 
@@ -17,16 +17,16 @@ if (isNpxExecution) {
   const arguments_ = process.argv.slice(2);
 
   // Use the installer for all commands
-  const bmadScriptPath = path.join(__dirname, 'installer', 'bin', 'bmad.js');
+  const aafScriptPath = path.join(__dirname, 'installer', 'bin', 'aaf.js');
 
-  if (!fs.existsSync(bmadScriptPath)) {
-    console.error('Error: Could not find bmad.js at', bmadScriptPath);
+  if (!fs.existsSync(aafScriptPath)) {
+    console.error('Error: Could not find aaf.js at', aafScriptPath);
     console.error('Current directory:', __dirname);
     process.exit(1);
   }
 
   try {
-    execSync(`node "${bmadScriptPath}" ${arguments_.join(' ')}`, {
+    execSync(`node "${aafScriptPath}" ${arguments_.join(' ')}`, {
       stdio: 'inherit',
       cwd: path.dirname(__dirname),
     });
@@ -35,5 +35,5 @@ if (isNpxExecution) {
   }
 } else {
   // Local execution - use installer for all commands
-  require('./installer/bin/bmad.js');
+  require('./installer/bin/aaf.js');
 }

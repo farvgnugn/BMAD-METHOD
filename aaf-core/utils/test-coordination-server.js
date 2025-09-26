@@ -6,13 +6,13 @@
  * Simple Socket.IO server for testing multi-developer coordination
  */
 
-const { Server } = require('socket.io');
-const http = require('http');
+import { Server } from 'socket.io';
+import { createServer } from 'node:http';
 
 class BMadCoordinationServer {
     constructor(port = 54321) {
         this.port = port;
-        this.server = http.createServer();
+        this.server = createServer();
         this.io = new Server(this.server, {
             cors: {
                 origin: "*",
@@ -26,6 +26,9 @@ class BMadCoordinationServer {
         this.claims = new Map();
         this.agentNames = new Map(); // Track agent names per project: project -> Map<agentName, info>
         this.projects = new Map(); // Track active projects
+        this.workflowSubscriptions = new Map(); // Track workflow subscribers per project
+        this.reviewClaims = new Map(); // Track review claims: storyId -> reviewer info
+        this.storyStatuses = new Map(); // Track story statuses: storyId -> status info
 
         this.setupHandlers();
         this.setupTestData();
@@ -81,7 +84,8 @@ class BMadCoordinationServer {
             // Claim story handler
             socket.on('claim-story', (data, callback) => {
                 try {
-                    const { storyId, epicId, developerId, timeout } = data;
+                    const { storyId, developerId, timeout } = data;
+                    // const epicId = data.epicId; // Currently unused
                     const story = this.stories.get(storyId);
 
                     if (!story) {
@@ -362,7 +366,7 @@ class BMadCoordinationServer {
                         }
                     } else {
                         // Get all agents across all projects
-                        for (const [project, projectAgents] of this.agentNames) {
+                        for (const [, projectAgents] of this.agentNames) {
                             for (const [name, info] of projectAgents) {
                                 activeAgents.push({
                                     agentName: name,
@@ -399,6 +403,252 @@ class BMadCoordinationServer {
                         success: true,
                         projects: projects
                     });
+                } catch (error) {
+                    callback({ success: false, error: error.message });
+                }
+            });
+
+            // Workflow orchestration handlers
+            socket.on('subscribe-workflow', (data, callback) => {
+                try {
+                    const { projectName, role, agentName } = data;
+                    const developer = this.developers.get(socket.id);
+
+                    if (!developer) {
+                        if (callback) callback({ success: false, error: 'Developer not registered' });
+                        return;
+                    }
+
+                    // Initialize project workflow subscriptions
+                    if (!this.workflowSubscriptions.has(projectName)) {
+                        this.workflowSubscriptions.set(projectName, new Map());
+                    }
+
+                    const projectSubscriptions = this.workflowSubscriptions.get(projectName);
+                    projectSubscriptions.set(socket.id, {
+                        socketId: socket.id,
+                        developerId: developer.id,
+                        role: role,
+                        agentName: agentName,
+                        subscribedAt: new Date()
+                    });
+
+                    console.log(`Workflow subscription: ${agentName} (${role}) in ${projectName}`);
+
+                    if (callback) callback({ success: true });
+                } catch (error) {
+                    if (callback) callback({ success: false, error: error.message });
+                }
+            });
+
+            socket.on('publish-story-status-change', (data, callback) => {
+                try {
+                    const { storyId, projectName, oldStatus, newStatus, agentName, role, branchName, notes } = data;
+                    // const developerId = data.developerId; // Currently unused
+
+                    // Store story status
+                    this.storyStatuses.set(storyId, {
+                        storyId,
+                        projectName,
+                        currentStatus: newStatus,
+                        previousStatus: oldStatus,
+                        lastUpdatedBy: agentName,
+                        lastUpdatedRole: role,
+                        branchName: branchName,
+                        lastUpdated: new Date(),
+                        notes: notes
+                    });
+
+                    // Broadcast to project workflow subscribers
+                    this.broadcastWorkflowEvent(projectName, 'story-status-changed', data);
+
+                    // Send targeted notifications based on status
+                    this.sendTargetedNotifications(projectName, data);
+
+                    console.log(`Workflow: ${storyId} status ${oldStatus} → ${newStatus} by ${agentName}`);
+
+                    if (callback) callback({ success: true });
+                } catch (error) {
+                    console.error('Workflow status change error:', error);
+                    if (callback) callback({ success: false, error: error.message });
+                }
+            });
+
+            socket.on('claim-story-review', (data, callback) => {
+                try {
+                    const { storyId, projectName, reviewerId, reviewerName, reviewType } = data;
+
+                    // Check if already claimed for review
+                    if (this.reviewClaims.has(storyId)) {
+                        callback({
+                            success: false,
+                            error: `Story ${storyId} already claimed for review by ${this.reviewClaims.get(storyId).reviewerName}`
+                        });
+                        return;
+                    }
+
+                    // Claim for review
+                    this.reviewClaims.set(storyId, {
+                        storyId,
+                        projectName,
+                        reviewerId,
+                        reviewerName,
+                        reviewType,
+                        claimedAt: new Date(),
+                        socketId: socket.id
+                    });
+
+                    // Update story status
+                    if (this.storyStatuses.has(storyId)) {
+                        const story = this.storyStatuses.get(storyId);
+                        story.currentStatus = 'In Review';
+                        story.reviewerId = reviewerId;
+                        story.reviewerName = reviewerName;
+                    }
+
+                    // Broadcast review claim
+                    this.broadcastWorkflowEvent(projectName, 'story-status-changed', {
+                        storyId,
+                        projectName,
+                        oldStatus: 'Ready for Review',
+                        newStatus: 'In Review',
+                        agentName: reviewerName,
+                        role: 'Reviewer',
+                        developerId: reviewerId,
+                        notes: `Review claimed by ${reviewerName}`
+                    });
+
+                    console.log(`Review claimed: ${storyId} by ${reviewerName}`);
+                    callback({ success: true });
+
+                } catch (error) {
+                    callback({ success: false, error: error.message });
+                }
+            });
+
+            socket.on('publish-review-complete', (data, callback) => {
+                try {
+                    const { storyId, projectName, reviewerId, reviewerName, reviewStatus, findings, branchName } = data;
+
+                    // Update story status based on review
+                    let newStatus;
+                    switch (reviewStatus) {
+                        case 'approved':
+                            newStatus = 'Approved';
+                            break;
+                        case 'needs-changes':
+                            newStatus = 'Needs Changes';
+                            break;
+                        case 'rejected':
+                            newStatus = 'Rejected';
+                            break;
+                        default:
+                            newStatus = 'Review Complete';
+                    }
+
+                    // Release review claim
+                    this.reviewClaims.delete(storyId);
+
+                    // Update story status
+                    if (this.storyStatuses.has(storyId)) {
+                        const story = this.storyStatuses.get(storyId);
+                        story.currentStatus = newStatus;
+                        story.reviewStatus = reviewStatus;
+                        story.reviewFindings = findings;
+                        story.reviewCompletedBy = reviewerName;
+                        story.reviewCompletedAt = new Date();
+                    }
+
+                    // Broadcast review completion
+                    this.broadcastWorkflowEvent(projectName, 'review-completed', {
+                        storyId,
+                        projectName,
+                        reviewerId,
+                        reviewerName,
+                        reviewStatus,
+                        findings,
+                        branchName,
+                        timestamp: new Date().toISOString()
+                    });
+
+                    // Also broadcast as status change
+                    this.broadcastWorkflowEvent(projectName, 'story-status-changed', {
+                        storyId,
+                        projectName,
+                        oldStatus: 'In Review',
+                        newStatus: newStatus,
+                        agentName: reviewerName,
+                        role: 'Reviewer',
+                        developerId: reviewerId,
+                        branchName: branchName,
+                        notes: findings.length > 0 ? `Review findings: ${findings.join(', ')}` : 'Review completed'
+                    });
+
+                    console.log(`Review completed: ${storyId} - ${reviewStatus} by ${reviewerName}`);
+                    callback({ success: true });
+
+                } catch (error) {
+                    callback({ success: false, error: error.message });
+                }
+            });
+
+            socket.on('get-available-reviews', (data, callback) => {
+                try {
+                    const { projectName } = data;
+                    // const reviewerRole = data.reviewerRole; // Currently unused
+
+                    const availableReviews = [];
+                    for (const [storyId, status] of this.storyStatuses) {
+                        if (status.projectName === projectName &&
+                            status.currentStatus === 'Ready for Review' &&
+                            !this.reviewClaims.has(storyId)) {
+
+                            availableReviews.push({
+                                id: storyId,
+                                title: this.stories.get(storyId)?.title || 'Unknown Story',
+                                branch: status.branchName,
+                                submittedBy: status.lastUpdatedBy,
+                                submittedAt: status.lastUpdated
+                            });
+                        }
+                    }
+
+                    callback({ success: true, stories: availableReviews });
+                } catch (error) {
+                    callback({ success: false, error: error.message });
+                }
+            });
+
+            socket.on('get-my-workflow-tasks', (data, callback) => {
+                try {
+                    const { projectName, role } = data;
+                    // const agentName = data.agentName; // Currently unused
+                    const tasks = [];
+
+                    // Get tasks based on role
+                    for (const [storyId, status] of this.storyStatuses) {
+                        if (status.projectName !== projectName) continue;
+
+                        if (role === 'Developer' && status.currentStatus === 'Needs Changes') {
+                            tasks.push({
+                                storyId,
+                                description: 'Address review feedback and resubmit',
+                                status: status.currentStatus,
+                                branch: status.branchName,
+                                priority: 'high'
+                            });
+                        } else if (['Reviewer', 'QA'].includes(role) && status.currentStatus === 'Ready for Review') {
+                            tasks.push({
+                                storyId,
+                                description: 'Review code and provide feedback',
+                                status: status.currentStatus,
+                                branch: status.branchName,
+                                priority: 'medium'
+                            });
+                        }
+                    }
+
+                    callback({ success: true, tasks });
                 } catch (error) {
                     callback({ success: false, error: error.message });
                 }
@@ -445,10 +695,77 @@ class BMadCoordinationServer {
         const projectAgents = this.agentNames.get(projectName);
         if (!projectAgents) return;
 
-        for (const [agentName, agentInfo] of projectAgents) {
+        for (const [, agentInfo] of projectAgents) {
             const socket = namespace.sockets.get(agentInfo.socketId);
             if (socket) {
                 socket.emit(eventName, data);
+            }
+        }
+    }
+
+    broadcastWorkflowEvent(projectName, eventName, data) {
+        const namespace = this.io.of('/dev-coordination');
+        const projectSubscribers = this.workflowSubscriptions.get(projectName);
+
+        if (!projectSubscribers) return;
+
+        for (const [socketId] of projectSubscribers) {
+            const socket = namespace.sockets.get(socketId);
+            if (socket && socket.connected) {
+                socket.emit(eventName, data);
+            }
+        }
+    }
+
+    sendTargetedNotifications(projectName, statusData) {
+        const { storyId, newStatus, branchName } = statusData;
+        // const oldStatus = statusData.oldStatus; // Currently unused
+        const namespace = this.io.of('/dev-coordination');
+        const projectSubscribers = this.workflowSubscriptions.get(projectName);
+
+        if (!projectSubscribers) return;
+
+        // Send targeted notifications based on status and role
+        for (const [socketId, subscriber] of projectSubscribers) {
+            const socket = namespace.sockets.get(socketId);
+            if (!socket || !socket.connected) continue;
+
+            let shouldNotify = false;
+            let message = '';
+            let action = '';
+
+            switch (newStatus) {
+                case 'Ready for Review':
+                    if (['Reviewer', 'QA', 'Architect', 'TechLead'].includes(subscriber.role)) {
+                        shouldNotify = true;
+                        message = `Story ${storyId} is ready for review (Branch: ${branchName || 'unknown'})`;
+                        action = `Use: aaf workflow claim-review ${storyId}`;
+                    }
+                    break;
+
+                case 'Needs Changes':
+                    if (subscriber.role === 'Developer') {
+                        shouldNotify = true;
+                        message = `Story ${storyId} needs changes and is available for development`;
+                        action = `Use: aaf workflow claim-story ${storyId}`;
+                    }
+                    break;
+
+                case 'Approved':
+                    // Notify all team members of approval
+                    shouldNotify = true;
+                    message = `Story ${storyId} has been approved and is ready for deployment`;
+                    break;
+            }
+
+            if (shouldNotify) {
+                socket.emit('workflow-notification', {
+                    storyId,
+                    projectName,
+                    message,
+                    action,
+                    timestamp: new Date().toISOString()
+                });
             }
         }
     }
@@ -503,7 +820,7 @@ class BMadCoordinationServer {
 }
 
 // CLI usage
-if (require.main === module) {
+if (import.meta.url === new URL(process.argv[1], 'file:').href) {
     const port = process.argv[2] || 54321;
     const server = new BMadCoordinationServer(port);
 
@@ -513,8 +830,8 @@ if (require.main === module) {
     process.on('SIGINT', () => {
         console.log('\nShutting down server...');
         server.stop();
-        process.exit(0);
+        throw new Error('Server shutdown requested');
     });
 }
 
-module.exports = BMadCoordinationServer;
+export default BMadCoordinationServer;

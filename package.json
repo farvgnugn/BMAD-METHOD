@@ -2,6 +2,7 @@
   "$schema": "https://json.schemastore.org/package.json",
   "name": "aaf-method",
   "version": "1.0.0",
+  "type": "module",
   "description": "Universal AI Agent Framework for Multi-Agent Coordination and Development",
   "keywords": [
     "ai",
@@ -19,6 +20,12 @@
   },
   "license": "MIT",
   "author": "Your Name",
+  "files": [
+    "aaf-core/",
+    "tools/",
+    "README.md",
+    "LICENSE"
+  ],
   "main": "tools/cli.js",
   "bin": {
     "aaf": "tools/aaf-npx-wrapper.js",
@@ -32,7 +39,7 @@
     "flatten": "node tools/flattener/main.js",
     "format": "prettier --write \"**/*.{js,cjs,mjs,json,md,yaml}\"",
     "format:check": "prettier --check \"**/*.{js,cjs,mjs,json,md,yaml}\"",
-    "install:bmad": "node tools/installer/bin/bmad.js install",
+    "install:aaf": "node tools/installer/bin/aaf.js install",
     "lint": "eslint . --ext .js,.cjs,.mjs,.yaml --max-warnings=0",
     "lint:fix": "eslint . --ext .js,.cjs,.mjs,.yaml --fix",
     "list:agents": "node tools/cli.js list:agents",
@@ -83,7 +90,9 @@
     "inquirer": "^8.2.6",
     "js-yaml": "^4.1.0",
     "ora": "^5.4.1",
-    "semver": "^7.7.2"
+    "semver": "^7.7.2",
+    "socket.io": "^4.7.5",
+    "socket.io-client": "^4.7.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.34.0",

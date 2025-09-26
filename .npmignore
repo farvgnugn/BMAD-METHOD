@@ -1,0 +1,49 @@
+# Development files
+.git/
+.github/
+.vscode/
+.husky/
+
+# Test files
+test-*.js
+demo-*.md
+*.test.js
+*.spec.js
+
+# Development dependencies
+node_modules/
+.eslintrc.*
+.prettierrc.*
+jest.config.*
+
+# Documentation (keep README.md)
+docs/
+*.md
+!README.md
+
+# Environment and config
+.env*
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# Development scripts
+scripts/development/
+.editorconfig
+
+# Temporary files
+tmp/
+temp/

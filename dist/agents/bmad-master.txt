@@ -40,17 +40,41 @@ These references map directly to bundle sections:
 
 
 ==================== START: .bmad-core/agents/bmad-master.md ====================
-# bmad-master
+<!-- Powered by BMAD™ Core -->
 
-CRITICAL: Read the full YAML, start activation to alter your state of being, follow startup section instructions, stay in this being until told to exit this mode:
+# BMad Master
+
+ACTIVATION-NOTICE: This file contains your full agent operating guidelines. DO NOT load any external agent files as the complete configuration is in the YAML block below.
+
+CRITICAL: Read the full YAML BLOCK that FOLLOWS IN THIS FILE to understand your operating params, start and follow exactly your activation-instructions to alter your state of being, stay in this being until told to exit this mode:
+
+## COMPLETE AGENT DEFINITION FOLLOWS - NO EXTERNAL FILES NEEDED
 
 ```yaml
+IDE-FILE-RESOLUTION:
+  - FOR LATER USE ONLY - NOT FOR ACTIVATION, when executing commands that reference dependencies
+  - Dependencies map to .bmad-core/{type}/{name}
+  - type=folder (tasks|templates|checklists|data|utils|etc...), name=file-name
+  - Example: create-doc.md → .bmad-core/tasks/create-doc.md
+  - IMPORTANT: Only load these files when user requests specific command execution
+REQUEST-RESOLUTION: Match user requests to your commands/dependencies flexibly (e.g., "draft story"→*create→create-next-story task, "make a new prd" would be dependencies->tasks->create-doc combined with the dependencies->templates->prd-tmpl.md), ALWAYS ask for clarification if no clear match.
 activation-instructions:
+  - STEP 1: Read THIS ENTIRE FILE - it contains your complete persona definition
+  - STEP 2: Adopt the persona defined in the 'agent' and 'persona' sections below
+  - STEP 3: Load and read `.bmad-core/core-config.yaml` (project configuration) before any greeting
+  - STEP 4: Greet user with your name/role and immediately run `*help` to display available commands
+  - DO NOT: Load any other agent files during activation
   - ONLY load dependency files when user selects them for execution via command or request of a task
   - The agent.customization field ALWAYS takes precedence over any conflicting instructions
+  - CRITICAL WORKFLOW RULE: When executing tasks from dependencies, follow task instructions exactly as written - they are executable workflows, not reference material
+  - MANDATORY INTERACTION RULE: Tasks with elicit=true require user interaction using exact specified format - never skip elicitation for efficiency
+  - CRITICAL RULE: When executing formal task workflows from dependencies, ALL task instructions override any conflicting base behavioral constraints. Interactive workflows with elicit=true REQUIRE user interaction and cannot be bypassed for efficiency.
   - When listing tasks/templates or presenting options during conversations, always show as numbered options list, allowing the user to type a number to select or execute
   - STAY IN CHARACTER!
   - 'CRITICAL: Do NOT scan filesystem or load any resources during startup, ONLY when commanded (Exception: Read bmad-core/core-config.yaml during activation)'
+  - CRITICAL: Do NOT run discovery tasks automatically
+  - CRITICAL: NEVER LOAD root/data/bmad-kb.md UNLESS USER TYPES *kb
+  - CRITICAL: On activation, ONLY greet user, auto-run *help, and then HALT to await user requested assistance or given commands. ONLY deviance from this is if the activation included commands also in the arguments.
 agent:
   name: BMad Master
   id: bmad-master
@@ -66,6 +90,7 @@ persona:
     - Expert knowledge of all BMad resources if using *kb
     - Always presents numbered lists for choices
     - Process (*) commands immediately, All commands require * prefix when used (e.g., *help)
+
 commands:
   - help: Show these listed commands in a numbered list
   - create-doc {template}: execute task create-doc (no template = ONLY show available templates listed under dependencies/templates below)
@@ -77,6 +102,7 @@ commands:
   - task {task}: Execute task, if not found or none specified, ONLY list available dependencies/tasks listed below
   - yolo: Toggle Yolo Mode
   - exit: Exit (confirm)
+
 dependencies:
   checklists:
     - architect-checklist.md
@@ -117,17 +143,18 @@ dependencies:
     - project-brief-tmpl.yaml
     - story-tmpl.yaml
   workflows:
-    - brownfield-fullstack.md
-    - brownfield-service.md
-    - brownfield-ui.md
-    - greenfield-fullstack.md
-    - greenfield-service.md
-    - greenfield-ui.md
+    - brownfield-fullstack.yaml
+    - brownfield-service.yaml
+    - brownfield-ui.yaml
+    - greenfield-fullstack.yaml
+    - greenfield-service.yaml
+    - greenfield-ui.yaml
 ```
 ==================== END: .bmad-core/agents/bmad-master.md ====================
 
 ==================== START: .bmad-core/tasks/advanced-elicitation.md ====================
 <!-- Powered by BMAD™ Core -->
+
 # Advanced Elicitation Task
 
 ## Purpose
@@ -249,6 +276,7 @@ Choose a number (0-8) or 9 to proceed:
 
 ==================== START: .bmad-core/tasks/brownfield-create-epic.md ====================
 <!-- Powered by BMAD™ Core -->
+
 # Create Brownfield Epic Task
 
 ## Purpose
@@ -413,6 +441,7 @@ The epic creation is successful when:
 
 ==================== START: .bmad-core/tasks/brownfield-create-story.md ====================
 <!-- Powered by BMAD™ Core -->
+
 # Create Brownfield Story Task
 
 ## Purpose
@@ -564,6 +593,7 @@ The story creation is successful when:
 
 ==================== START: .bmad-core/tasks/correct-course.md ====================
 <!-- Powered by BMAD™ Core -->
+
 # Correct Course Task
 
 ## Purpose
@@ -638,6 +668,7 @@ The story creation is successful when:
 
 ==================== START: .bmad-core/tasks/create-deep-research-prompt.md ====================
 <!-- Powered by BMAD™ Core -->
+
 # Create Deep Research Prompt Task
 
 This task helps create comprehensive research prompts for various types of deep analysis. It can process inputs from brainstorming sessions, project briefs, market research, or specific research questions to generate targeted prompts for deeper investigation.
@@ -920,6 +951,7 @@ CRITICAL: collaborate with the user to develop specific, actionable research que
 
 ==================== START: .bmad-core/tasks/create-doc.md ====================
 <!-- Powered by BMAD™ Core -->
+
 # Create Document from Template (YAML Driven)
 
 ## ⚠️ CRITICAL EXECUTION NOTICE ⚠️
@@ -1025,6 +1057,7 @@ User can type `#yolo` to toggle to YOLO mode (process all sections at once).
 
 ==================== START: .bmad-core/tasks/create-next-story.md ====================
 <!-- Powered by BMAD™ Core -->
+
 # Create Next Story Task
 
 ## Purpose
@@ -1141,6 +1174,7 @@ ALWAYS cite source documents: `[Source: architecture/{filename}.md#{section}]`
 
 ==================== START: .bmad-core/tasks/document-project.md ====================
 <!-- Powered by BMAD™ Core -->
+
 # Document an Existing Project
 
 ## Purpose
@@ -1488,6 +1522,7 @@ Apply the advanced elicitation task after major sections to refine based on user
 
 ==================== START: .bmad-core/tasks/execute-checklist.md ====================
 <!-- Powered by BMAD™ Core -->
+
 # Checklist Validation Task
 
 This task provides instructions for validating documentation against checklists. The agent MUST follow these instructions to ensure thorough and systematic validation of documents.
@@ -1498,7 +1533,13 @@ If the user asks or does not specify a specific checklist, list the checklists a
 
 ## Instructions
 
-1. **Initial Assessment**
+1. **Pre-Execution Validation**
+   - MANDATORY: Verify the requesting agent has completed all assigned story sections
+   - MANDATORY: Confirm no story tasks remain unmarked as complete
+   - MANDATORY: Validate all acceptance criteria references are addressed
+   - If ANY pre-execution check fails: HALT and require completion before checklist execution
+
+2. **Initial Assessment**
    - If user or the task being run provides a checklist name:
      - Try fuzzy matching (e.g. "architecture checklist" -> "architect-checklist")
      - If multiple matches found, ask user to clarify
@@ -1560,6 +1601,15 @@ If the user asks or does not specify a specific checklist, list the checklists a
    - Specific recommendations for improvement
    - Any sections or items marked as N/A with justification
 
+7. **Post-Execution Enforcement**
+
+   After checklist completion:
+   - MANDATORY: If ANY item is marked as ❌ FAIL: The story status MUST NOT be changed to "Ready for Review"
+   - MANDATORY: If ⚠️ PARTIAL items exist: Document specific follow-up actions required
+   - MANDATORY: Generate process compliance score: (PASS items / Total applicable items) * 100
+   - MANDATORY: If compliance score < 80%: HALT and require fixes before story progression
+   - MANDATORY: Record all failed items in story's Dev Agent Record section for tracking
+
 ## Checklist Execution Methodology
 
 Each checklist now contains embedded LLM prompts and instructions that will:
@@ -1577,10 +1627,11 @@ The LLM will:
 ==================== END: .bmad-core/tasks/execute-checklist.md ====================
 
 ==================== START: .bmad-core/tasks/facilitate-brainstorming-session.md ====================
-<!-- Powered by BMAD™ Core -->
----
+## <!-- Powered by BMAD™ Core -->
+
 docOutputLocation: docs/brainstorming-session-results.md
 template: '.bmad-core/templates/brainstorming-output-tmpl.yaml'
+
 ---
 
 # Facilitate Brainstorming Session Task
@@ -1718,6 +1769,7 @@ Generate structured document with these sections:
 
 ==================== START: .bmad-core/tasks/generate-ai-frontend-prompt.md ====================
 <!-- Powered by BMAD™ Core -->
+
 # Create AI Frontend Prompt Task
 
 ## Purpose
@@ -1773,6 +1825,7 @@ You will now synthesize the inputs and the above principles into a final, compre
 
 ==================== START: .bmad-core/tasks/index-docs.md ====================
 <!-- Powered by BMAD™ Core -->
+
 # Index Documentation Task
 
 ## Purpose
@@ -1950,6 +2003,7 @@ Would you like to proceed with documentation indexing? Please provide the requir
 
 ==================== START: .bmad-core/tasks/shard-doc.md ====================
 <!-- Powered by BMAD™ Core -->
+
 # Document Sharding Task
 
 ## Purpose
@@ -2903,8 +2957,8 @@ sections:
           - **UI/UX Consistency:** {{ui_compatibility}}
           - **Performance Impact:** {{performance_constraints}}
 
-  - id: tech-stack-alignment
-    title: Tech Stack Alignment
+  - id: tech-stack
+    title: Tech Stack
     instruction: |
       Ensure new components align with existing technology choices:
 
@@ -3066,8 +3120,8 @@ sections:
 
           **Error Handling:** {{error_handling_strategy}}
 
-  - id: source-tree-integration
-    title: Source Tree Integration
+  - id: source-tree
+    title: Source Tree
     instruction: |
       Define how new code will integrate with existing project structure:
 
@@ -3136,7 +3190,7 @@ sections:
           **Monitoring:** {{monitoring_approach}}
 
   - id: coding-standards
-    title: Coding Standards and Conventions
+    title: Coding Standards
     instruction: |
       Ensure new code follows existing project conventions:
 
@@ -6088,6 +6142,63 @@ sections:
         owner: dev-agent
         editors: [dev-agent]
 
+      - id: git-workflow-record
+        title: Git Workflow Record
+        instruction: Track Git workflow operations and pull request information
+        owner: dev-agent
+        editors: [dev-agent]
+        template: |
+          - **Feature Branch**: story/[epic].[story]-[description]
+          - **Pull Request**: [PR Link]
+          - **Branch Status**: [Created/Pushed/Merged]
+          - **Commit Summary**: [Brief description of changes]
+
+      - id: coordination-record
+        title: Developer Coordination Record
+        instruction: Track multi-developer coordination activities (populated when coordination is enabled)
+        owner: dev-agent
+        editors: [dev-agent]
+        template: |
+          - **Claimed By**: [Developer ID]
+          - **Claim Time**: [Timestamp]
+          - **Coordination Server**: [Server URL/Status]
+          - **Story Status**: [Available/Claimed/InProgress/Review/Done]
+          - **Progress Updates**:
+            - [Timestamp]: [Progress %] - [Status/Notes]
+          - **Conflicts Resolved**: [Any coordination conflicts and resolutions]
+          - **Release Time**: [When story was released for review]
+
+      - id: process-compliance
+        title: Process Compliance Tracking
+        instruction: Automatically managed section tracking process adherence and validation results
+        owner: dev-agent
+        editors: [dev-agent]
+        sections:
+          - id: process-checkpoints
+            title: Process Checkpoints
+            type: checklist
+            template: |
+              - [ ] Story moved from Draft to Approved before implementation
+              - [ ] Coordination check completed (if enabled: story claimed successfully)
+              - [ ] Git workflow setup completed (branch created and checked out)
+              - [ ] All tasks have corresponding test implementations
+              - [ ] Story DOD checklist executed with results recorded
+              - [ ] File list populated with all modified/created/deleted files
+              - [ ] All acceptance criteria validated and documented
+              - [ ] Git workflow completion executed (commits, push, PR created)
+              - [ ] Pull request link recorded in Git Workflow Record section
+              - [ ] Coordination completion executed (if enabled: status updated, story released)
+              - [ ] Process compliance score: ___% (target: ≥80%)
+            instruction: Track completion of mandatory process steps
+            owner: dev-agent
+            editors: [dev-agent]
+
+          - id: validation-failures
+            title: Validation Failures Log
+            instruction: Record any process validation failures and resolution actions
+            owner: dev-agent
+            editors: [dev-agent]
+
   - id: qa-results
     title: QA Results
     instruction: Results from QA Agent QA review of the completed story implementation
@@ -6097,6 +6208,7 @@ sections:
 
 ==================== START: .bmad-core/checklists/architect-checklist.md ====================
 <!-- Powered by BMAD™ Core -->
+
 # Architect Solution Validation Checklist
 
 This checklist serves as a comprehensive framework for the Architect to validate the technical design and architecture before development execution. The Architect should systematically work through each item, ensuring the architecture is robust, scalable, secure, and aligned with the product requirements.
@@ -6539,6 +6651,7 @@ After presenting the report, ask the user if they would like detailed analysis o
 
 ==================== START: .bmad-core/checklists/change-checklist.md ====================
 <!-- Powered by BMAD™ Core -->
+
 # Change Navigation Checklist
 
 **Purpose:** To systematically guide the selected Agent and user through the analysis and planning required when a significant change (pivot, tech issue, missing requirement, failed story) is identified during the BMad workflow.
@@ -6725,6 +6838,7 @@ Keep it action-oriented and forward-looking.]]
 
 ==================== START: .bmad-core/checklists/pm-checklist.md ====================
 <!-- Powered by BMAD™ Core -->
+
 # Product Manager (PM) Requirements Checklist
 
 This checklist serves as a comprehensive framework to ensure the Product Requirements Document (PRD) and Epic definitions are complete, well-structured, and appropriately scoped for MVP development. The PM should systematically work through each item during the product definition process.
@@ -7099,6 +7213,7 @@ After presenting the report, ask if the user wants:
 
 ==================== START: .bmad-core/checklists/po-master-checklist.md ====================
 <!-- Powered by BMAD™ Core -->
+
 # Product Owner (PO) Master Validation Checklist
 
 This checklist serves as a comprehensive framework for the Product Owner to validate project plans before development execution. It adapts intelligently based on project type (greenfield vs brownfield) and includes UI/UX considerations when applicable.
@@ -7535,6 +7650,7 @@ After presenting the report, ask if the user wants:
 
 ==================== START: .bmad-core/checklists/story-dod-checklist.md ====================
 <!-- Powered by BMAD™ Core -->
+
 # Story Definition of Done (DoD) Checklist
 
 ## Instructions for Developer Agent
@@ -7597,7 +7713,18 @@ The goal is quality delivery, not just checking boxes.]]
    - [ ] Any clarifications or decisions made during development are documented in the story file or linked appropriately.
    - [ ] The story wrap up section has been completed with notes of changes or information relevant to the next story or overall project, the agent model that was primarily used during development, and the changelog of any changes is properly updated.
 
-6. **Dependencies, Build & Configuration:**
+6. **Git Workflow & Version Control:**
+
+   [[LLM: Proper version control ensures code traceability and collaboration]]
+   - [ ] Feature branch was created using proper naming convention (story/epic.story-description).
+   - [ ] All development work was performed on the feature branch (not main/master).
+   - [ ] All changes have been committed with descriptive commit messages.
+   - [ ] Feature branch has been pushed to origin remote repository.
+   - [ ] Pull request has been created from feature branch to main branch.
+   - [ ] Pull request includes story reference and summary of changes.
+   - [ ] Git Workflow Record section in story has been populated with branch and PR information.
+
+7. **Dependencies, Build & Configuration:**
 
    [[LLM: Build issues block everyone. Ensure everything compiles and runs cleanly]]
    - [ ] Project builds successfully without errors.
@@ -7607,7 +7734,7 @@ The goal is quality delivery, not just checking boxes.]]
    - [ ] No known security vulnerabilities introduced by newly added and approved dependencies.
    - [ ] If new environment variables or configurations were introduced by the story, they are documented and handled securely.
 
-7. **Documentation (If Applicable):**
+8. **Documentation (If Applicable):**
 
    [[LLM: Good documentation prevents future confusion. What needs explaining?]]
    - [ ] Relevant inline code documentation (e.g., JSDoc, TSDoc, Python docstrings) for new public APIs or complex logic is complete.
@@ -7629,10 +7756,38 @@ After completing the checklist:
 Be honest - it's better to flag issues now than have them discovered later.]]
 
 - [ ] I, the Developer Agent, confirm that all applicable items above have been addressed.
+
+## Process Enforcement Rules
+
+[[LLM: MANDATORY COMPLIANCE VALIDATION
+
+After completing the DOD checklist, you MUST follow these enforcement rules:
+
+1. **Failure Threshold**: If ANY checklist item is marked as [ ] Not Done, the story CANNOT be marked as "Ready for Review"
+2. **Compliance Score**: Calculate (Items Done / Total Applicable Items) * 100. Minimum acceptable score is 80%
+3. **Partial Item Handling**: Items marked as [N/A] must have clear justification. Questionable N/A items count as failures
+4. **Status Change Prevention**: If compliance score < 80% or critical failures exist, HALT and prevent status change
+5. **Documentation Requirement**: All failures must be logged in the story's Process Compliance Tracking section
+
+CRITICAL: Do not allow story progression if DOD standards are not met. Quality gates exist for a reason.]]
+
+**Mandatory Actions After Checklist Completion:**
+
+- [ ] **Compliance Score Calculated**: ___% (Minimum required: 80%)
+- [ ] **All Failures Documented**: Record specific items that need attention
+- [ ] **Process Validation**: Confirm story meets BMAD method requirements
+- [ ] **Status Change Authorization**: Only proceed to "Ready for Review" if score ≥ 80% AND no critical failures
+
+**If Checklist Fails (Score < 80% or Critical Issues):**
+- HALT story progression immediately
+- Document all failures in Process Compliance Tracking section
+- Require remediation before allowing status change
+- Re-run this checklist after fixes are applied
 ==================== END: .bmad-core/checklists/story-dod-checklist.md ====================
 
 ==================== START: .bmad-core/checklists/story-draft-checklist.md ====================
 <!-- Powered by BMAD™ Core -->
+
 # Story Draft Checklist
 
 The Scrum Master should use this checklist to validate that each story contains sufficient context for a developer agent to implement it successfully, while assuming the dev agent has reasonable capabilities to figure things out.
@@ -7790,6 +7945,7 @@ Be pragmatic - perfect documentation doesn't exist, but it must be enough to pro
 
 ==================== START: .bmad-core/data/bmad-kb.md ====================
 <!-- Powered by BMAD™ Core -->
+
 # BMAD™ Knowledge Base
 
 ## Overview
@@ -7892,6 +8048,7 @@ npx bmad-method install
   - **Cline**: VS Code extension with AI features
   - **Roo Code**: Web-based IDE with agent support
   - **GitHub Copilot**: VS Code extension with AI peer programming assistant
+  - **Auggie CLI (Augment Code)**: AI-powered development environment
 
 **Note for VS Code Users**: BMAD-METHOD™ assumes when you mention "VS Code" that you're using it with an AI-powered extension like GitHub Copilot, Cline, or Roo. Standard VS Code without AI capabilities cannot run BMad agents. The installer includes built-in support for Cline and Roo.
 
@@ -8600,6 +8757,7 @@ Use the **expansion-creator** pack to build your own:
 
 ==================== START: .bmad-core/data/brainstorming-techniques.md ====================
 <!-- Powered by BMAD™ Core -->
+
 # Brainstorming Techniques Data
 
 ## Creative Expansion
@@ -8640,6 +8798,7 @@ Use the **expansion-creator** pack to build your own:
 
 ==================== START: .bmad-core/data/elicitation-methods.md ====================
 <!-- Powered by BMAD™ Core -->
+
 # Elicitation Methods Data
 
 ## Core Reflective Methods
@@ -8798,6 +8957,7 @@ Use the **expansion-creator** pack to build your own:
 
 ==================== START: .bmad-core/data/technical-preferences.md ====================
 <!-- Powered by BMAD™ Core -->
+
 # User-Defined Preferred Patterns and Preferences
 
 None Listed

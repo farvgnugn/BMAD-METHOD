@@ -1,0 +1,9 @@
+{
+  "id": "21.2",
+  "title": "Find Work Command Implementation",
+  "description": "Intelligent work discovery for AI agents with contextual prioritization",
+  "status": "Done",
+  "priority": "high",
+  "epic_id": "21",
+  "details": "Smart work prioritization based on current branch, review findings, and role-specific tasks"
+}

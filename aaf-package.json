@@ -1,0 +1,61 @@
+{
+  "name": "aaf-method",
+  "version": "1.0.0",
+  "description": "Autonomous Agent Framework for multi-agent development orchestration",
+  "main": "aaf-execution.js",
+  "bin": {
+    "aaf-method": "./install.js",
+    "aaf-execution": "./aaf-execution.js"
+  },
+  "scripts": {
+    "install": "node install.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node aaf-execution.js start",
+    "status": "node aaf-execution.js status",
+    "init": "node aaf-execution.js init"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "automation",
+    "development",
+    "orchestration",
+    "claude-code",
+    "multi-agent",
+    "autonomous",
+    "workflow"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "@octokit/rest": "^20.0.0",
+    "js-yaml": "^4.1.0",
+    "socket.io": "^4.7.0",
+    "socket.io-client": "^4.7.0"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0",
+    "@types/jest": "^29.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dferguson/AAF-METHOD.git"
+  },
+  "homepage": "https://github.com/dferguson/AAF-METHOD#readme",
+  "bugs": {
+    "url": "https://github.com/dferguson/AAF-METHOD/issues"
+  },
+  "files": [
+    "aaf-execution.js",
+    "install.js",
+    "claude-code-commands/",
+    "claude-code-integration/",
+    "aaf-core/",
+    "bmad-core/",
+    "README.md",
+    "LICENSE"
+  ]
+}

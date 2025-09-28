@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-/* <!-- Powered by BMAD™ Core --> */
+/* <!-- Powered by AAF Method --> */
 
 /**
- * BMAD Socket.IO Coordination Client
+ * AAF Socket.IO Coordination Client
  * Handles real-time developer coordination for story management
  */
 
@@ -13,7 +13,7 @@ const yaml = require('js-yaml');
 const { spawn } = require('child_process');
 const http = require('http');
 
-class BMadCoordination {
+class AAFCoordination {
     constructor() {
         this.socket = null;
         this.config = null;
@@ -28,8 +28,8 @@ class BMadCoordination {
         try {
             // Try multiple possible config locations
             const possiblePaths = [
-                path.join(process.cwd(), '.bmad-core', 'core-config.yaml'),
-                path.join(process.cwd(), 'bmad-core', 'core-config.yaml'),
+                path.join(process.cwd(), '.aaf-core', 'core-config.yaml'),
+                path.join(process.cwd(), 'aaf-core', 'core-config.yaml'),
                 path.join(__dirname, '..', 'core-config.yaml')
             ];
 
@@ -52,7 +52,7 @@ class BMadCoordination {
                 throw new Error('Coordination is not enabled in core-config.yaml');
             }
         } catch (error) {
-            console.error('Failed to load BMAD configuration:', error.message);
+            console.error('Failed to load AAF configuration:', error.message);
             process.exit(1);
         }
     }
@@ -496,7 +496,7 @@ class BMadCoordination {
 async function main() {
     const args = process.argv.slice(2);
     const command = args[0];
-    const coordination = new BMadCoordination();
+    const coordination = new AAFCoordination();
 
     try {
         switch (command) {
@@ -630,7 +630,7 @@ async function main() {
                 break;
 
             default:
-                console.log('BMAD Socket.IO Coordination Client');
+                console.log('AAF Socket.IO Coordination Client');
                 console.log('Usage:');
                 console.log('');
                 console.log('Connection & Agent Management:');
@@ -673,4 +673,4 @@ if (require.main === module) {
     main();
 }
 
-module.exports = BMadCoordination;
+module.exports = AAFCoordination;

@@ -6,16 +6,16 @@
  * Integrates AAF orchestration into Claude Code as slash commands
  */
 
-const AAFSlashCommands = require('../claude-code-commands/slash-commands');
+const AAFCompleteSlashCommands = require('../claude-code-commands/slash-commands-v2');
 const path = require('path');
 const fs = require('fs');
 
 class AAFClaudeCodePlugin {
     constructor() {
-        this.name = 'AAF Orchestrator';
+        this.name = 'AAF Method - Complete Implementation';
         this.version = '1.0.0';
-        this.description = 'Autonomous agent orchestration for multi-agent development';
-        this.slashCommands = new AAFSlashCommands();
+        this.description = 'Complete autonomous agent orchestration with 100% functionality';
+        this.slashCommands = new AAFCompleteSlashCommands();
         this.isEnabled = true;
     }
 

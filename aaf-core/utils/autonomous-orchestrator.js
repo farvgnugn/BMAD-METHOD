@@ -62,6 +62,10 @@ class AutonomousOrchestrator extends EventEmitter {
 
         this.isRunning = false;
         this.executionLoop = null;
+
+        // Integration with complete implementation
+        this.lifecycleManager = null;
+        this.useCompleteImplementation = true;
     }
 
     loadConfig() {

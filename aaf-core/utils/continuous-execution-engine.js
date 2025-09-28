@@ -12,8 +12,10 @@ const path = require('path');
 const yaml = require('js-yaml');
 
 const AAFCoordination = require('./socket-coordination.js');
-const AutonomousOrchestrator = require('./autonomous-orchestrator.js');
-const TestCoverageMonitor = require('./test-coverage-monitor.js');
+const AgentLifecycleManager = require('./agent-lifecycle-manager.js');
+const ClaudeCodeAgentManager = require('./claude-code-agent-manager.js');
+const TestCoverageValidator = require('./test-coverage-validator.js');
+const GitHubWorkflowEngine = require('./github-workflow-engine.js');
 
 class ContinuousExecutionEngine extends EventEmitter {
     constructor(options = {}) {
@@ -24,8 +26,10 @@ class ContinuousExecutionEngine extends EventEmitter {
 
         // Core components
         this.coordination = null;
-        this.orchestrator = null;
-        this.coverageMonitor = null;
+        this.lifecycleManager = null;
+        this.agentManager = null;
+        this.coverageValidator = null;
+        this.githubEngine = null;
 
         // Execution state
         this.isRunning = false;
@@ -35,7 +39,26 @@ class ContinuousExecutionEngine extends EventEmitter {
             storiesProcessed: 0,
             agentsSpawned: 0,
             testRuns: 0,
-            totalRuntime: 0
+            totalRuntime: 0,
+            errors: 0,
+            retries: 0,
+            failures: 0
+        };
+
+        // Error handling and retry configuration
+        this.errorHandling = {
+            maxRetries: options.maxRetries || 3,
+            retryDelay: options.retryDelay || 5000,
+            circuitBreakerThreshold: options.circuitBreakerThreshold || 5,
+            recoveryTimeout: options.recoveryTimeout || 60000
+        };
+
+        // Circuit breaker state
+        this.circuitBreaker = {
+            isOpen: false,
+            failureCount: 0,
+            lastFailureTime: null,
+            nextRetryTime: null
         };
 
         // Performance tracking
@@ -105,13 +128,12 @@ class ContinuousExecutionEngine extends EventEmitter {
         // Handle uncaught errors
         process.on('unhandledRejection', (error) => {
             console.error('Unhandled promise rejection:', error);
-            this.emit('error', error);
+            this.handleCriticalError(error, 'unhandled-rejection');
         });
 
         process.on('uncaughtException', (error) => {
             console.error('Uncaught exception:', error);
-            this.emit('error', error);
-            this.gracefulShutdown();
+            this.handleCriticalError(error, 'uncaught-exception');
         });
     }
 
@@ -130,28 +152,42 @@ class ContinuousExecutionEngine extends EventEmitter {
                 'ExecutionEngine'
             );
 
-            // 2. Initialize autonomous orchestrator
-            console.log('🤖 Initializing autonomous orchestrator...');
-            this.orchestrator = new AutonomousOrchestrator({
-                config: this.config,
-                projectName: this.projectName,
+            // 2. Initialize Claude Code Agent Manager
+            console.log('🤖 Initializing Claude Code Agent Manager...');
+            this.agentManager = new ClaudeCodeAgentManager({
+                workspaceRoot: process.cwd(),
+                communicationPort: 0
+            });
+
+            // 3. Initialize test coverage validator
+            console.log('🧪 Initializing test coverage validator...');
+            this.coverageValidator = new TestCoverageValidator({
+                workspaceRoot: process.cwd(),
+                coverageThreshold: this.config.quality.testCoverageTarget
+            });
+
+            // 4. Initialize GitHub workflow engine
+            console.log('📋 Initializing GitHub workflow engine...');
+            this.githubEngine = new GitHubWorkflowEngine({
+                workspaceRoot: process.cwd(),
+                defaultBranch: 'main'
+            });
+
+            // 5. Initialize Agent Lifecycle Manager
+            console.log('🔄 Initializing Agent Lifecycle Manager...');
+            this.lifecycleManager = new AgentLifecycleManager({
+                agentManager: this.agentManager,
+                coverageValidator: this.coverageValidator,
+                githubEngine: this.githubEngine,
                 maxConcurrentAgents: this.config.execution.maxConcurrentAgents,
-                pollingInterval: this.config.execution.pollingInterval
+                storyTimeout: this.config.execution.storyTimeout
             });
-            await this.orchestrator.initialize(this.coordination);
+            await this.lifecycleManager.initialize();
 
-            // 3. Initialize test coverage monitor
-            console.log('🧪 Initializing test coverage monitor...');
-            this.coverageMonitor = new TestCoverageMonitor({
-                projectPath: process.cwd(),
-                coverageTarget: this.config.quality.testCoverageTarget
-            });
-            await this.coverageMonitor.initialize();
-
-            // 4. Wire up event handlers
+            // 6. Wire up event handlers
             this.wireEventHandlers();
 
-            // 5. Setup periodic reporting
+            // 7. Setup periodic reporting
             this.setupPeriodicReporting();
 
             console.log('✅ Continuous Execution Engine initialized successfully!');
@@ -162,26 +198,34 @@ class ContinuousExecutionEngine extends EventEmitter {
         } catch (error) {
             console.error('❌ Failed to initialize execution engine:', error.message);
             this.emit('initialization-error', error);
+
+            // Attempt retry for initialization failures
+            if (this.shouldRetry(error)) {
+                console.log('🔄 Retrying initialization...');
+                await this.delay(this.errorHandling.retryDelay);
+                return this.initialize();
+            }
+
             return false;
         }
     }
 
     wireEventHandlers() {
-        // Orchestrator events
-        this.orchestrator.on('agent-spawned', (agent) => {
+        // Agent Lifecycle Manager events
+        this.lifecycleManager.on('agent-spawned', (agent) => {
             this.executionStats.agentsSpawned++;
-            console.log(`🤖 Agent spawned: ${agent.id} for story ${agent.story.id}`);
+            console.log(`🤖 Agent spawned: ${agent.agentId} for story ${agent.story?.id || 'unknown'}`);
             this.emit('agent-spawned', agent);
         });
 
-        this.orchestrator.on('agent-completed', (agent) => {
+        this.lifecycleManager.on('agent-completed', (agent) => {
             const duration = agent.endTime - agent.startTime;
             this.metrics.storyCompletionTimes.push(duration);
             this.updateAverageStoryTime();
 
             if (agent.status === 'completed') {
                 this.executionStats.storiesCompleted++;
-                console.log(`✅ Story ${agent.story.id} completed in ${Math.round(duration/1000)}s`);
+                console.log(`✅ Story ${agent.story?.id || agent.agentId} completed in ${Math.round(duration/1000)}s`);
             }
 
             this.executionStats.storiesProcessed++;
@@ -189,7 +233,7 @@ class ContinuousExecutionEngine extends EventEmitter {
             this.emit('agent-completed', agent);
         });
 
-        this.orchestrator.on('targets-achieved', (progress) => {
+        this.lifecycleManager.on('targets-achieved', (progress) => {
             console.log('🎉 ALL EXECUTION TARGETS ACHIEVED!');
             this.emit('targets-achieved', progress);
 
@@ -198,23 +242,35 @@ class ContinuousExecutionEngine extends EventEmitter {
             }
         });
 
-        // Coverage monitor events
-        this.coverageMonitor.on('coverage-updated', (coverage) => {
-            this.metrics.testCoverageProgress.push({
-                timestamp: new Date(),
-                coverage: coverage
-            });
-            this.emit('coverage-updated', coverage);
+        this.lifecycleManager.on('story-failed', (storyId, error) => {
+            console.log(`❌ Story ${storyId} failed: ${error.message}`);
+            this.emit('story-failed', { storyId, error });
         });
 
-        this.coverageMonitor.on('story-coverage-validated', (storyId, isValid, coverage) => {
-            if (isValid) {
-                console.log(`✅ Story ${storyId} meets coverage requirements`);
+        // Coverage validator events
+        this.coverageValidator.on('coverage-validated', (result) => {
+            this.metrics.testCoverageProgress.push({
+                timestamp: new Date(),
+                coverage: result.coverage
+            });
+            this.emit('coverage-updated', result.coverage);
+
+            if (result.meetsThreshold) {
+                console.log(`✅ Coverage validation passed: ${result.coverage.overall}%`);
             } else {
-                console.log(`❌ Story ${storyId} needs more test coverage`);
-                // Trigger additional test generation
-                this.triggerAdditionalTestGeneration(storyId);
+                console.log(`❌ Coverage validation failed: ${result.coverage.overall}% (required: ${result.threshold}%)`);
             }
+        });
+
+        // GitHub workflow events
+        this.githubEngine.on('pr-created', (prData) => {
+            console.log(`📋 Pull request created: #${prData.number}`);
+            this.emit('pr-created', prData);
+        });
+
+        this.githubEngine.on('pr-merged', (prData) => {
+            console.log(`✅ Pull request merged: #${prData.number}`);
+            this.emit('pr-merged', prData);
         });
 
         // Coordination events
@@ -248,11 +304,15 @@ class ContinuousExecutionEngine extends EventEmitter {
         this.startTime = new Date();
 
         try {
-            // Start the orchestrator
-            await this.orchestrator.startContinuousExecution();
+            // Start the lifecycle manager with retry
+            await this.retry(async () => {
+                await this.lifecycleManager.startExecution();
+            }, { operation: 'start-lifecycle-manager' });
 
-            // Start initial coverage analysis
-            await this.coverageMonitor.runFullCoverageAnalysis();
+            // Start initial coverage analysis with retry
+            await this.retry(async () => {
+                await this.coverageValidator.validateTestCoverage();
+            }, { operation: 'initial-coverage-analysis' });
 
             console.log('✅ Continuous execution started successfully!');
             this.emit('execution-started');
@@ -266,6 +326,7 @@ class ContinuousExecutionEngine extends EventEmitter {
             console.error('❌ Failed to start execution:', error.message);
             this.isRunning = false;
             this.emit('execution-error', error);
+            this.recordCircuitBreakerFailure();
             return false;
         }
     }
@@ -280,8 +341,10 @@ class ContinuousExecutionEngine extends EventEmitter {
         this.isRunning = false;
 
         try {
-            // Stop the orchestrator
-            await this.orchestrator.stopContinuousExecution();
+            // Stop the lifecycle manager with retry
+            await this.retry(async () => {
+                await this.lifecycleManager.stopExecution();
+            }, { operation: 'stop-lifecycle-manager' });
 
             // Generate final reports
             await this.generateFinalReport();
@@ -311,16 +374,23 @@ class ContinuousExecutionEngine extends EventEmitter {
             console.log(`🔍 Running coverage check for story ${storyId}...`);
 
             try {
-                await this.coverageMonitor.trackStoryTestCoverage(storyId);
-                const isValid = await this.coverageMonitor.validateStoryCoverage(storyId);
+                const coverageResult = await this.retry(async () => {
+                    return await this.coverageValidator.validateTestCoverage();
+                }, { operation: 'coverage-validation', storyId });
 
-                if (!isValid) {
+                if (!coverageResult.meetsThreshold) {
                     console.log(`❌ Story ${storyId} failed coverage check`);
                     // Mark story as needing more work
-                    await this.coordination.updateStoryStatus(storyId, 'Needs Changes', 0, 'Insufficient test coverage');
+                    await this.retry(async () => {
+                        await this.coordination.updateStoryStatus(storyId, 'Needs Changes', 0, 'Insufficient test coverage');
+                    }, { operation: 'update-story-status', storyId });
+
+                    // Trigger additional test generation
+                    await this.triggerAdditionalTestGeneration(storyId);
                 }
             } catch (error) {
                 console.error(`Coverage check failed for story ${storyId}:`, error.message);
+                this.recordCircuitBreakerFailure();
             }
         }
 
@@ -332,23 +402,250 @@ class ContinuousExecutionEngine extends EventEmitter {
         this.emit('story-status-changed', data);
     }
 
+    async handleCriticalError(error, type) {
+        console.error(`🚨 Critical error [${type}]:`, error.message);
+        this.executionStats.errors++;
+        this.recordCircuitBreakerFailure();
+
+        this.emit('critical-error', { error, type, timestamp: new Date() });
+
+        // If circuit breaker is triggered, initiate emergency shutdown
+        if (this.circuitBreaker.isOpen) {
+            console.log('⚡ Circuit breaker triggered - initiating emergency shutdown');
+            await this.emergencyShutdown(error);
+        } else if (type === 'uncaught-exception') {
+            // Uncaught exceptions require immediate shutdown
+            await this.emergencyShutdown(error);
+        }
+    }
+
+    shouldRetry(error, retryCount = 0) {
+        // Don't retry if circuit breaker is open
+        if (this.circuitBreaker.isOpen) {
+            return false;
+        }
+
+        // Don't retry if max retries exceeded
+        if (retryCount >= this.errorHandling.maxRetries) {
+            return false;
+        }
+
+        // Don't retry certain error types
+        const nonRetryableErrors = [
+            'EAUTH',           // Authentication errors
+            'EPERM',           // Permission errors
+            'ENOTFOUND',       // DNS resolution errors
+            'INVALID_CONFIG'   // Configuration errors
+        ];
+
+        if (nonRetryableErrors.some(code => error.code === code || error.message.includes(code))) {
+            return false;
+        }
+
+        return true;
+    }
+
+    recordCircuitBreakerFailure() {
+        this.circuitBreaker.failureCount++;
+        this.circuitBreaker.lastFailureTime = new Date();
+
+        if (this.circuitBreaker.failureCount >= this.errorHandling.circuitBreakerThreshold) {
+            this.circuitBreaker.isOpen = true;
+            this.circuitBreaker.nextRetryTime = new Date(Date.now() + this.errorHandling.recoveryTimeout);
+
+            console.log(`⚡ Circuit breaker opened - recovery in ${this.errorHandling.recoveryTimeout/1000}s`);
+            this.emit('circuit-breaker-opened');
+
+            // Schedule circuit breaker recovery
+            setTimeout(() => {
+                this.circuitBreaker.isOpen = false;
+                this.circuitBreaker.failureCount = 0;
+                console.log('⚡ Circuit breaker reset - retrying operations');
+                this.emit('circuit-breaker-reset');
+            }, this.errorHandling.recoveryTimeout);
+        }
+    }
+
+    resetCircuitBreaker() {
+        this.circuitBreaker.isOpen = false;
+        this.circuitBreaker.failureCount = 0;
+        this.circuitBreaker.lastFailureTime = null;
+        this.circuitBreaker.nextRetryTime = null;
+    }
+
+    async retry(operation, context = {}, retryCount = 0) {
+        try {
+            const result = await operation();
+
+            // Reset circuit breaker on successful operation
+            if (this.circuitBreaker.failureCount > 0) {
+                this.resetCircuitBreaker();
+            }
+
+            return result;
+        } catch (error) {
+            this.executionStats.retries++;
+            console.error(`🔄 Operation failed (attempt ${retryCount + 1}/${this.errorHandling.maxRetries + 1}):`, error.message);
+
+            if (this.shouldRetry(error, retryCount)) {
+                const delay = this.calculateRetryDelay(retryCount);
+                console.log(`⏳ Retrying in ${delay/1000}s...`);
+
+                await this.delay(delay);
+                return this.retry(operation, context, retryCount + 1);
+            } else {
+                this.executionStats.failures++;
+                this.recordCircuitBreakerFailure();
+                console.error(`❌ Operation failed permanently after ${retryCount + 1} attempts`);
+                throw error;
+            }
+        }
+    }
+
+    calculateRetryDelay(retryCount) {
+        // Exponential backoff with jitter
+        const baseDelay = this.errorHandling.retryDelay;
+        const exponentialDelay = baseDelay * Math.pow(2, retryCount);
+        const jitter = Math.random() * baseDelay * 0.1; // 10% jitter
+
+        return Math.min(exponentialDelay + jitter, 30000); // Max 30 seconds
+    }
+
+    async delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async emergencyShutdown(error) {
+        console.log('🚨 EMERGENCY SHUTDOWN INITIATED');
+        console.log(`Cause: ${error.message}`);
+
+        try {
+            // Save emergency state
+            await this.saveEmergencyState(error);
+
+            // Force stop all operations
+            this.isRunning = false;
+
+            if (this.lifecycleManager) {
+                await this.lifecycleManager.emergencyShutdown();
+            }
+
+            if (this.agentManager) {
+                await this.agentManager.shutdown();
+            }
+
+            // Generate emergency report
+            await this.generateEmergencyReport(error);
+
+            console.log('🚨 Emergency shutdown completed');
+            process.exit(1);
+
+        } catch (shutdownError) {
+            console.error('❌ Emergency shutdown failed:', shutdownError.message);
+            process.exit(1);
+        }
+    }
+
+    async saveEmergencyState(error) {
+        try {
+            const emergencyState = {
+                timestamp: new Date().toISOString(),
+                error: {
+                    message: error.message,
+                    stack: error.stack,
+                    code: error.code
+                },
+                executionStats: this.executionStats,
+                circuitBreaker: this.circuitBreaker,
+                agents: this.agentManager?.getAllAgents() || [],
+                lastStatus: this.getStatus()
+            };
+
+            const emergencyDir = path.join(process.cwd(), '.aaf-temp', 'emergency');
+            fs.mkdirSync(emergencyDir, { recursive: true });
+
+            const emergencyFile = path.join(emergencyDir, `emergency-${Date.now()}.json`);
+            fs.writeFileSync(emergencyFile, JSON.stringify(emergencyState, null, 2));
+
+            console.log(`💾 Emergency state saved: ${emergencyFile}`);
+        } catch (saveError) {
+            console.error('Failed to save emergency state:', saveError.message);
+        }
+    }
+
+    async generateEmergencyReport(error) {
+        try {
+            const report = {
+                timestamp: new Date().toISOString(),
+                type: 'emergency-shutdown',
+                cause: error.message,
+                uptime: this.isRunning ? new Date() - this.startTime : 0,
+                stats: this.executionStats,
+                circuitBreaker: this.circuitBreaker,
+                recommendations: this.generateEmergencyRecommendations(error)
+            };
+
+            const emergencyDir = path.join(process.cwd(), '.aaf-temp', 'emergency');
+            const reportFile = path.join(emergencyDir, 'emergency-report.json');
+
+            fs.writeFileSync(reportFile, JSON.stringify(report, null, 2));
+            console.log(`📄 Emergency report generated: ${reportFile}`);
+
+            return report;
+        } catch (reportError) {
+            console.error('Failed to generate emergency report:', reportError.message);
+        }
+    }
+
+    generateEmergencyRecommendations(error) {
+        const recommendations = [];
+
+        if (error.code === 'ECONNREFUSED') {
+            recommendations.push('Check if coordination server is running');
+            recommendations.push('Verify network connectivity');
+        }
+
+        if (error.message.includes('spawn')) {
+            recommendations.push('Verify Claude Code installation');
+            recommendations.push('Check PATH environment variable');
+        }
+
+        if (this.circuitBreaker.failureCount > 0) {
+            recommendations.push('Review system stability and resource usage');
+            recommendations.push('Consider increasing retry thresholds');
+        }
+
+        if (this.executionStats.failures > this.executionStats.storiesCompleted) {
+            recommendations.push('Review story complexity and agent timeouts');
+            recommendations.push('Check for systemic configuration issues');
+        }
+
+        return recommendations;
+    }
+
     async triggerAdditionalTestGeneration(storyId) {
         console.log(`🧪 Triggering additional test generation for story ${storyId}...`);
 
         try {
-            // Spawn a specialized testing agent
-            const testingAgent = await this.orchestrator.spawnAgent('QA', {
-                id: storyId,
+            // Create a testing story for the lifecycle manager
+            const testingStory = {
+                id: `${storyId}-test-generation`,
                 title: `Generate additional tests for ${storyId}`,
-                description: `Increase test coverage to meet 100% requirement`
-            });
+                description: `Increase test coverage to meet 100% requirement for story ${storyId}`,
+                priority: 'high',
+                estimatedEffort: 'medium'
+            };
 
-            if (testingAgent) {
-                console.log(`🤖 Testing agent ${testingAgent} spawned for story ${storyId}`);
-            }
+            // Queue the testing story with retry
+            await this.retry(async () => {
+                await this.lifecycleManager.queueStory(testingStory);
+            }, { operation: 'queue-test-generation', storyId });
+
+            console.log(`🤖 Test generation queued for story ${storyId}`);
 
         } catch (error) {
             console.error(`Failed to trigger test generation for ${storyId}:`, error.message);
+            this.recordCircuitBreakerFailure();
         }
     }
 
@@ -410,8 +707,8 @@ class ContinuousExecutionEngine extends EventEmitter {
 
     generateStatusReport() {
         const uptime = this.isRunning ? new Date() - this.startTime : 0;
-        const orchestratorStatus = this.orchestrator.getStatus();
-        const coverageStatus = this.coverageMonitor.getStatus();
+        const lifecycleStatus = this.lifecycleManager?.getStatus() || {};
+        const coverageStatus = this.coverageValidator?.getStatus() || {};
 
         const report = {
             timestamp: new Date().toISOString(),
@@ -421,8 +718,8 @@ class ContinuousExecutionEngine extends EventEmitter {
 
             execution: {
                 ...this.executionStats,
-                activeAgents: orchestratorStatus.activeAgents,
-                queuedStories: orchestratorStatus.queuedStories
+                activeAgents: lifecycleStatus.activeAgents || 0,
+                queuedStories: lifecycleStatus.queuedStories || 0
             },
 
             metrics: {
@@ -431,25 +728,25 @@ class ContinuousExecutionEngine extends EventEmitter {
             },
 
             coverage: {
-                global: coverageStatus.globalCoverage,
-                targetsMet: coverageStatus.targetsMet,
-                storiesTracked: coverageStatus.storiesTracked
+                global: coverageStatus.overallCoverage || 0,
+                targetsMet: coverageStatus.meetsThreshold || false,
+                threshold: coverageStatus.threshold || 100
             },
 
-            orchestrator: orchestratorStatus,
+            lifecycle: lifecycleStatus,
 
             config: this.config
         };
 
         console.log('\n📊 === STATUS REPORT ===');
         console.log(`⏱️ Uptime: ${Math.round(uptime/1000)}s`);
-        console.log(`🤖 Active agents: ${orchestratorStatus.activeAgents}`);
-        console.log(`📋 Queued stories: ${orchestratorStatus.queuedStories}`);
+        console.log(`🤖 Active agents: ${lifecycleStatus.activeAgents || 0}`);
+        console.log(`📋 Queued stories: ${lifecycleStatus.queuedStories || 0}`);
         console.log(`✅ Stories completed: ${this.executionStats.storiesCompleted}`);
         console.log(`📊 Success rate: ${Math.round(this.metrics.successRate)}%`);
 
-        if (coverageStatus.globalCoverage) {
-            console.log(`🧪 Test coverage: ${coverageStatus.globalCoverage.lines.pct}%`);
+        if (coverageStatus.overallCoverage) {
+            console.log(`🧪 Test coverage: ${coverageStatus.overallCoverage}%`);
         }
 
         console.log('======================\n');
@@ -507,12 +804,11 @@ class ContinuousExecutionEngine extends EventEmitter {
 
     async checkAllTargetsMet() {
         try {
-            const orchestratorProgress = await this.orchestrator.getCompletionProgress();
-            const coverageTargets = this.coverageMonitor.checkCoverageTargets();
+            const lifecycleStatus = this.lifecycleManager.getStatus();
+            const coverageResult = await this.coverageValidator.validateTestCoverage();
 
-            return orchestratorProgress.stories >= 100 &&
-                   orchestratorProgress.tests >= 100 &&
-                   coverageTargets.allMet;
+            return lifecycleStatus.completionRate >= 100 &&
+                   coverageResult.meetsThreshold;
         } catch (error) {
             return false;
         }
@@ -544,6 +840,14 @@ class ContinuousExecutionEngine extends EventEmitter {
                 await this.stopExecution();
             }
 
+            if (this.lifecycleManager) {
+                await this.lifecycleManager.shutdown();
+            }
+
+            if (this.agentManager) {
+                await this.agentManager.shutdown();
+            }
+
             if (this.coordination) {
                 this.coordination.disconnect();
             }
@@ -563,8 +867,10 @@ class ContinuousExecutionEngine extends EventEmitter {
             uptime: this.isRunning ? new Date() - this.startTime : 0,
             stats: this.executionStats,
             metrics: this.metrics,
-            orchestrator: this.orchestrator?.getStatus(),
-            coverage: this.coverageMonitor?.getStatus()
+            lifecycle: this.lifecycleManager?.getStatus(),
+            coverage: this.coverageValidator?.getStatus(),
+            agents: this.agentManager?.getAllAgents(),
+            github: this.githubEngine?.getStatus()
         };
     }
 }

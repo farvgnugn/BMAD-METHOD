@@ -46,6 +46,8 @@ class AAFCompleteOrchestrator {
 
     loadConfig() {
         const configPaths = [
+            path.join(this.projectRoot, 'docs', 'stories', 'orchestration-config.yaml'),
+            path.join(this.projectRoot, 'docs', 'aaf-config.yaml'),
             path.join(this.projectRoot, '.aaf-core', 'orchestration-config.yaml'),
             path.join(this.projectRoot, '.aaf', 'config.yaml'),
             path.join(this.projectRoot, 'aaf-config.yaml')
@@ -371,6 +373,8 @@ class AAFCompleteOrchestrator {
 
     async getAvailableUserStories() {
         const storyPaths = [
+            path.join(this.projectRoot, 'docs', 'stories', 'user-stories.yaml'),
+            path.join(this.projectRoot, 'docs', 'stories.yaml'),
             path.join(this.projectRoot, '.aaf-core', 'user-stories.yaml'),
             path.join(this.projectRoot, '.aaf', 'stories.yaml'),
             path.join(this.projectRoot, 'user-stories.yaml')

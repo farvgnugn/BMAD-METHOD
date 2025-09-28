@@ -356,7 +356,7 @@ class AAFCompleteSlashCommands {
                 requirements: [
                     'Claude Code CLI installed',
                     'Git repository initialized',
-                    'User stories configured (.aaf-core/user-stories.yaml)',
+                    'User stories configured (docs/stories/user-stories.yaml)',
                     'Optional: GitHub token for PR automation'
                 ]
             }

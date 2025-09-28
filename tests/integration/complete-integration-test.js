@@ -53,7 +53,7 @@ class CompleteIntegrationTest {
                     jest: '^29.0.0'
                 }
             }, null, 2),
-            '.aaf-core/user-stories.yaml': `stories:
+            'docs/stories/user-stories.yaml': `stories:
   - id: "COMPLETE-001"
     title: "Complete Integration Test Story"
     description: "Test story for complete AAF integration testing"
@@ -70,7 +70,7 @@ class CompleteIntegrationTest {
     priority: "medium"
     estimatedEffort: "medium"
     status: "Available"`,
-            '.aaf-core/orchestration-config.yaml': `git:
+            'docs/stories/orchestration-config.yaml': `git:
   mainBranch: 'main'
   branchPrefix: 'test/story-'
 agents:
